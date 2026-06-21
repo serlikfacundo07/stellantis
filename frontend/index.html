@@ -1,0 +1,1783 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Stellantis — Sistema de Gestión de Autopartes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+
+/* ════════════════════════════════
+   TOKENS — modo claro
+════════════════════════════════ */
+:root {
+  --bg:       #f4f5f8;
+  --surface:  #ffffff;
+  --border:   #e4e7ef;
+  --border2:  #d0d5e8;
+  --text:     #111827;
+  --sub:      #374151;
+  --muted:    #6b7280;
+  --faint:    #9ca3af;
+
+  --blue:     #2563eb;
+  --blue-lt:  #eff4ff;
+  --blue-bd:  #c7d9ff;
+  --blue-dk:  #1d4fd8;
+
+  --red:      #dc2626;
+  --red-lt:   #fff1f1;
+  --red-bd:   #fecaca;
+
+  --amber:    #d97706;
+  --amb-lt:   #fffbeb;
+  --amb-bd:   #fde68a;
+
+  --green:    #16a34a;
+  --grn-lt:   #f0fdf4;
+  --grn-bd:   #bbf7d0;
+
+  --shadow:   0 2px 10px rgba(0,0,0,.07);
+  --shadow-md:0 4px 18px rgba(0,0,0,.10);
+  --r:        6px;
+  --font:     'Inter', sans-serif;
+  --mono:     'JetBrains Mono', monospace;
+  --ease:     cubic-bezier(.22,.68,0,1.2);
+}
+
+/* ════════════════════════════════
+   TOKENS — modo oscuro
+════════════════════════════════ */
+html.dark {
+  --bg:       #0f1117;
+  --surface:  #161b27;
+  --border:   #232b3e;
+  --border2:  #2c3650;
+  --text:     #e8edf8;
+  --sub:      #b0bccc;
+  --muted:    #6b7a9a;
+  --faint:    #44506a;
+
+  --blue-lt:  rgba(37,99,235,.14);
+  --blue-bd:  rgba(77,133,255,.4);
+  --blue-dk:  #3b74f5;
+
+  --red-lt:   rgba(220,38,38,.12);
+  --red-bd:   rgba(220,38,38,.35);
+
+  --amb-lt:   rgba(217,119,6,.12);
+  --amb-bd:   rgba(217,119,6,.35);
+
+  --grn-lt:   rgba(22,163,74,.12);
+  --grn-bd:   rgba(22,163,74,.35);
+
+  --shadow:   0 2px 14px rgba(0,0,0,.35);
+  --shadow-md:0 6px 24px rgba(0,0,0,.45);
+}
+
+/* ════════════════════════════════
+   RESET
+════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body, .sidebar, .topbar, .login-card,
+.kpi, .sem-card, .tbl-wrap, .imp-panel,
+.alert-row, .toast, .nav-item, .user-row,
+.drop-zone, .imp-log, .field-input,
+.help-popover, thead th {
+  transition: background-color .22s ease, border-color .22s ease,
+              color .18s ease, box-shadow .18s ease;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+button { cursor: pointer; border: none; background: none; font-family: inherit; font-size: 14px; }
+input  { font-family: inherit; font-size: 14px; }
+
+/* ════════════════════════════════
+   SCREENS
+════════════════════════════════ */
+.screen { display: none; width: 100vw; height: 100vh; }
+.screen.active { display: flex; }
+
+/* ════════════════════════════════
+   LOGIN
+════════════════════════════════ */
+#login-screen {
+  background: var(--bg);
+  align-items: center; justify-content: center;
+  position: relative;
+}
+.login-theme-btn {
+  position: absolute; top: 18px; right: 20px;
+  width: 32px; height: 32px; border-radius: var(--r);
+  border: 1px solid var(--border2); background: var(--surface);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: border-color .15s, background .22s ease;
+}
+.login-theme-btn:hover { border-color: var(--blue); }
+.login-theme-btn svg { width: 15px; height: 15px; color: var(--muted); }
+
+.login-card {
+  width: 390px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 36px 36px 30px;
+  box-shadow: var(--shadow);
+  animation: fade-up .22s var(--ease);
+}
+.login-brand {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 28px; padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.login-brand-sq {
+  width: 32px; height: 32px; background: var(--blue);
+  border-radius: 5px; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; color: #fff; flex-shrink: 0;
+}
+.login-brand-name { font-size: 15px; font-weight: 700; }
+.login-brand-sub  { font-size: 11px; color: var(--muted); }
+.login-heading { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.login-desc    { font-size: 13px; color: var(--muted); margin-bottom: 22px; }
+
+/* ── Field con validación ── */
+.field-wrap { margin-bottom: 16px; }
+.field-label {
+  display: block; font-size: 12px; font-weight: 600;
+  color: var(--sub); margin-bottom: 5px;
+}
+.field-input {
+  width: 100%; border: 1px solid var(--border2);
+  border-radius: var(--r); padding: 9px 12px;
+  color: var(--text); background: var(--bg); outline: none;
+  transition: border-color .15s, box-shadow .15s, background .22s ease;
+}
+.field-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+.field-input.invalid { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-lt); }
+.field-error {
+  display: none; margin-top: 5px;
+  font-size: 11px; font-weight: 500; color: var(--red);
+  animation: fade-up .15s ease;
+}
+.field-error.show { display: flex; align-items: center; gap: 4px; }
+.field-error svg { width: 11px; height: 11px; flex-shrink: 0; }
+
+.login-btn {
+  width: 100%; background: var(--blue); color: #fff;
+  border-radius: var(--r); padding: 10px;
+  font-size: 14px; font-weight: 600;
+  transition: background .15s, transform .1s; margin-top: 4px;
+}
+.login-btn:hover  { background: var(--blue-dk); }
+.login-btn:active { transform: scale(.99); }
+.login-footer {
+  text-align: center; margin-top: 16px;
+  font-size: 11px; color: var(--faint); font-family: var(--mono);
+}
+
+/* ════════════════════════════════
+   APP SHELL
+════════════════════════════════ */
+#app-screen { flex-direction: row; }
+
+.sidebar {
+  width: 220px; min-width: 220px;
+  background: var(--surface); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+}
+.sb-logo {
+  padding: 18px 18px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 9px;
+}
+.sb-logo-sq {
+  width: 28px; height: 28px; background: var(--blue); border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 800; color: #fff; flex-shrink: 0;
+}
+.sb-logo-name { font-size: 14px; font-weight: 700; }
+.sb-logo-sub  { font-size: 10px; color: var(--muted); }
+.sb-section { padding: 14px 10px 6px; }
+.sb-section-label {
+  font-size: 10px; font-weight: 600; color: var(--faint);
+  text-transform: uppercase; letter-spacing: .08em; padding: 0 8px; margin-bottom: 4px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px; border-radius: 5px;
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  cursor: pointer; margin-bottom: 1px;
+}
+.nav-item:hover  { background: var(--bg); color: var(--text); }
+.nav-item.active { background: var(--blue-lt); color: var(--blue); font-weight: 600; }
+.nav-icon { width: 16px; height: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.nav-icon svg { width: 14px; height: 14px; }
+.nav-badge {
+  margin-left: auto; background: var(--red); color: #fff;
+  font-size: 10px; font-weight: 700; border-radius: 99px;
+  padding: 1px 6px; font-family: var(--mono);
+}
+.nav-badge.bump { animation: bump .25s var(--ease); }
+.sb-bottom { margin-top: auto; border-top: 1px solid var(--border); padding: 14px 10px; }
+.user-row {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px; border-radius: 5px; background: var(--bg); margin-bottom: 4px;
+}
+.user-av {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--blue);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.user-name { font-size: 13px; font-weight: 600; }
+.user-role { font-size: 10px; color: var(--muted); }
+.logout-btn {
+  display: flex; align-items: center; gap: 7px; padding: 7px 10px;
+  font-size: 12px; color: var(--muted); border-radius: 5px;
+  transition: color .12s; width: 100%;
+}
+.logout-btn:hover { color: var(--red); }
+
+.main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.topbar {
+  height: 52px; min-height: 52px; background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 20px; gap: 10px;
+}
+.topbar-title { font-size: 15px; font-weight: 700; flex: 1; }
+.topbar-tag {
+  font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  border: 1px solid var(--border2); border-radius: 4px; padding: 3px 8px;
+  color: var(--faint); font-family: var(--mono);
+}
+.topbar-time { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.theme-btn {
+  width: 30px; height: 30px; border-radius: var(--r);
+  border: 1px solid var(--border2); background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  transition: border-color .15s, background .22s ease;
+}
+.theme-btn:hover { border-color: var(--blue); }
+.theme-btn svg { width: 14px; height: 14px; color: var(--muted); }
+.icon-sun  { display: none; }
+.icon-moon { display: block; }
+html.dark .icon-sun  { display: block; }
+html.dark .icon-moon { display: none; }
+
+.content { flex: 1; overflow-y: auto; padding: 24px; }
+.content::-webkit-scrollbar { width: 4px; }
+.content::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+.page { display: none; animation: fade-up .18s var(--ease); }
+.page.active { display: block; }
+
+/* ════════════════════════════════
+   SECTION HEADER + HELP
+════════════════════════════════ */
+.sec-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; position: relative; }
+.sec-title { font-size: 14px; font-weight: 700; }
+.sec-count {
+  font-size: 11px; font-family: var(--mono); color: var(--muted);
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 99px; padding: 2px 9px;
+}
+.sec-actions { margin-left: auto; display: flex; gap: 6px; }
+
+/* ── Help button ── */
+.help-btn {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--bg); border: 1px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  font-size: 10px; font-weight: 700; color: var(--muted);
+  transition: border-color .15s, color .15s, background .15s;
+  font-family: var(--mono); line-height: 1;
+}
+.help-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-lt); }
+
+/* ── Help popover ── */
+.help-popover {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 200;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--r);
+  padding: 14px 16px;
+  width: 300px;
+  box-shadow: var(--shadow-md);
+  animation: fade-up .15s var(--ease);
+}
+.help-popover.open { display: block; }
+.help-popover-title {
+  font-size: 12px; font-weight: 700; margin-bottom: 8px;
+  color: var(--blue);
+}
+.help-popover-body { font-size: 12px; color: var(--sub); line-height: 1.6; }
+.help-popover-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin-bottom: 6px;
+}
+.help-popover-row:last-child { margin-bottom: 0; }
+.help-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px;
+}
+.help-dot.red   { background: var(--red); }
+.help-dot.amber { background: var(--amber); }
+.help-dot.green { background: var(--green); }
+.help-dot.blue  { background: var(--blue); }
+
+/* ════════════════════════════════
+   BUTTONS
+════════════════════════════════ */
+.btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 13px; border-radius: var(--r);
+  font-size: 13px; font-weight: 600;
+  transition: background .12s, border-color .12s, color .12s, transform .1s;
+  cursor: pointer;
+}
+.btn:active { transform: scale(.98); }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: var(--blue-dk); }
+.btn-ghost {
+  background: var(--surface); color: var(--sub); border: 1px solid var(--border2);
+  transition: background .22s ease, border-color .12s, color .12s;
+}
+.btn-ghost:hover { border-color: var(--blue); color: var(--blue); }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* ════════════════════════════════
+   BADGE
+════════════════════════════════ */
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 600;
+  font-family: var(--mono); letter-spacing: .03em;
+}
+.badge.red   { background: var(--red-lt);  color: var(--red);   border: 1px solid var(--red-bd); }
+.badge.amber { background: var(--amb-lt);  color: var(--amber); border: 1px solid var(--amb-bd); }
+.badge.green { background: var(--grn-lt);  color: var(--green); border: 1px solid var(--grn-bd); }
+.badge.blue  { background: var(--blue-lt); color: var(--blue);  border: 1px solid var(--blue-bd); }
+.badge.grey  { background: var(--bg);      color: var(--muted); border: 1px solid var(--border); }
+
+/* ════════════════════════════════
+   TABLE
+════════════════════════════════ */
+.tbl-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); overflow: hidden; margin-bottom: 22px;
+}
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  background: var(--bg); padding: 10px 16px;
+  font-size: 11px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em;
+  text-align: left; border-bottom: 1px solid var(--border);
+}
+tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--bg); }
+tbody td { padding: 11px 16px; font-size: 13px; color: var(--sub); }
+td.mono { font-family: var(--mono); font-size: 12px; }
+
+/* ════════════════════════════════
+   KPI
+════════════════════════════════ */
+.kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 24px; }
+.kpi {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 18px 20px;
+}
+.kpi:hover { box-shadow: var(--shadow); }
+.kpi.red   { border-left: 3px solid var(--red); }
+.kpi.amber { border-left: 3px solid var(--amber); }
+.kpi.green { border-left: 3px solid var(--green); }
+.kpi.blue  { border-left: 3px solid var(--blue); }
+.kpi-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
+.kpi-val   { font-size: 30px; font-weight: 800; line-height: 1; font-family: var(--mono); margin-bottom: 4px; }
+.kpi-sub   { font-size: 11px; color: var(--muted); }
+.c-red   { color: var(--red); }
+.c-amber { color: var(--amber); }
+.c-green { color: var(--green); }
+.c-blue  { color: var(--blue); }
+
+/* ════════════════════════════════
+   SEMAPHORE
+════════════════════════════════ */
+.sem-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 22px; }
+.sem-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 13px 15px;
+  display: flex; align-items: center; gap: 12px;
+}
+.sem-card:hover { box-shadow: var(--shadow); border-color: var(--border2); }
+.sem-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.sem-dot.red   { background: var(--red);   box-shadow: 0 0 0 3px var(--red-lt);   animation: pulse-dot 2s ease-in-out infinite; }
+.sem-dot.amber { background: var(--amber); box-shadow: 0 0 0 3px var(--amb-lt); }
+.sem-dot.green { background: var(--green); box-shadow: 0 0 0 3px var(--grn-lt); }
+.sem-body { flex: 1; min-width: 0; }
+.sem-name  { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 1px; }
+.sem-piece { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+.sem-track { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; transition: background .22s ease; }
+.sem-fill  { height: 100%; border-radius: 2px; transition: width .4s ease; }
+.sem-fill.red   { background: var(--red); }
+.sem-fill.amber { background: var(--amber); }
+.sem-fill.green { background: var(--green); }
+.sem-num { font-size: 18px; font-weight: 800; font-family: var(--mono); flex-shrink: 0; }
+.sem-num.red   { color: var(--red); }
+.sem-num.amber { color: var(--amber); }
+.sem-num.green { color: var(--green); }
+.dash-cols { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; }
+
+/* ════════════════════════════════
+   APERTURA — Priority
+════════════════════════════════ */
+.prio {
+  width: 22px; height: 22px; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; font-family: var(--mono);
+}
+.prio.p1 { background: var(--red-lt);  color: var(--red); }
+.prio.p2 { background: var(--amb-lt);  color: var(--amber); }
+.prio.p3 { background: var(--grn-lt);  color: var(--green); }
+
+/* ════════════════════════════════
+   IMPORTACION — Dual panels
+════════════════════════════════ */
+.import-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 22px; }
+.imp-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+.imp-head {
+  padding: 13px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 9px;
+}
+.imp-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.imp-dot.blue  { background: var(--blue); }
+.imp-dot.amber { background: var(--amber); }
+.imp-head-title { font-size: 13px; font-weight: 700; }
+.imp-head-tag {
+  margin-left: auto; font-size: 10px; color: var(--muted);
+  font-family: var(--mono); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 4px; padding: 2px 7px;
+}
+.imp-body { padding: 16px; }
+.drop-zone {
+  border: 1.5px dashed var(--border2); border-radius: var(--r);
+  padding: 26px 16px; text-align: center; cursor: pointer;
+  transition: border-color .15s, background .15s; margin-bottom: 12px;
+}
+.drop-zone:hover, .drop-zone.over { border-color: var(--blue); background: var(--blue-lt); }
+.drop-icon-wrap {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--bg); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 10px; transition: border-color .15s, background .15s;
+}
+.drop-zone:hover .drop-icon-wrap,
+.drop-zone.over  .drop-icon-wrap { background: var(--blue-lt); border-color: var(--blue-bd); }
+.drop-icon-wrap svg { width: 16px; height: 16px; color: var(--muted); transition: color .15s; }
+.drop-zone:hover .drop-icon-wrap svg,
+.drop-zone.over  .drop-icon-wrap svg { color: var(--blue); }
+.drop-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.drop-sub   { font-size: 11px; color: var(--muted); margin-bottom: 12px; }
+.file-pill {
+  display: none; font-family: var(--mono); font-size: 11px; color: var(--blue);
+  background: var(--blue-lt); border: 1px solid var(--blue-bd);
+  border-radius: 4px; padding: 5px 10px; margin-bottom: 10px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  animation: fade-up .15s ease;
+}
+.imp-actions { display: flex; gap: 6px; margin-bottom: 12px; }
+.prog-wrap  { margin-bottom: 10px; }
+.prog-label { font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+.prog-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; transition: background .22s ease; }
+.prog-fill  { height: 100%; border-radius: 2px; width: 0; transition: width .35s ease; }
+.prog-fill.blue  { background: var(--blue); }
+.prog-fill.amber { background: var(--amber); }
+.imp-log {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+  padding: 9px 11px; font-family: var(--mono); font-size: 11px;
+  color: var(--muted); height: 92px; overflow-y: auto;
+}
+.imp-log::-webkit-scrollbar { width: 3px; }
+.imp-log::-webkit-scrollbar-thumb { background: var(--border2); }
+.log-line { margin-bottom: 2px; }
+.log-line.ok   { color: var(--green); }
+.log-line.err  { color: var(--red); }
+.log-line.info { color: var(--blue); }
+
+/* ════════════════════════════════
+   ALERTAS
+════════════════════════════════ */
+.alert-list { display: flex; flex-direction: column; gap: 8px; }
+.alert-row {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 13px 16px;
+  display: flex; align-items: center; gap: 14px;
+}
+.alert-row:hover { box-shadow: var(--shadow); }
+.alert-row.crit { border-left: 3px solid var(--red); }
+.alert-row.warn { border-left: 3px solid var(--amber); }
+.alert-level {
+  width: 30px; height: 30px; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.alert-level.red   { background: var(--red-lt); }
+.alert-level.amber { background: var(--amb-lt); }
+.alert-level svg   { width: 14px; height: 14px; }
+.alert-body  { flex: 1; }
+.alert-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.alert-desc  { font-size: 12px; color: var(--muted); }
+.alert-time  { font-size: 11px; font-family: var(--mono); color: var(--faint); flex-shrink: 0; }
+.ack-btn {
+  font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 4px;
+  border: 1px solid var(--border2); color: var(--muted); white-space: nowrap;
+  transition: border-color .12s, color .12s, background .12s;
+}
+.ack-btn:hover { border-color: var(--green); color: var(--green); background: var(--grn-lt); }
+
+/* ════════════════════════════════
+   TOAST
+════════════════════════════════ */
+.toast-area { position: fixed; bottom: 20px; right: 20px; z-index: 999; display: flex; flex-direction: column; gap: 6px; }
+.toast {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 10px 16px;
+  font-size: 13px; display: flex; align-items: center; gap: 8px;
+  box-shadow: var(--shadow); animation: toast-in .18s var(--ease);
+  max-width: 300px; color: var(--text);
+}
+.toast .t-icon {
+  width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 10px; font-weight: 700;
+}
+.toast.ok   { border-left: 3px solid var(--green); }
+.toast.ok   .t-icon { background: var(--grn-lt); color: var(--green); }
+.toast.err  { border-left: 3px solid var(--red); }
+.toast.err  .t-icon { background: var(--red-lt); color: var(--red); }
+.toast.info { border-left: 3px solid var(--blue); }
+.toast.info .t-icon { background: var(--blue-lt); color: var(--blue); }
+
+/* ════════════════════════════════
+   ANIMATIONS
+════════════════════════════════ */
+@keyframes fade-up  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+@keyframes toast-in { from { opacity:0; transform:translateX(12px); } to { opacity:1; transform:none; } }
+@keyframes pulse-dot {
+  0%,100% { box-shadow: 0 0 0 3px var(--red-lt); }
+  50%     { box-shadow: 0 0 0 5px var(--red-lt); }
+}
+@keyframes bump { 0%{transform:scale(1);} 50%{transform:scale(1.3);} 100%{transform:scale(1);} }
+
+.containers-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 20px;
+  align-items: start;
+}
+.containers-list-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 16px;
+}
+.container-detail-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 16px;
+  min-height: 300px;
+}
+.container-row-clickable {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.container-row-clickable:hover {
+  background: var(--bg) !important;
+}
+.container-row-clickable.selected-row {
+  background: var(--blue-lt) !important;
+}
+.container-row-clickable.selected-row td {
+  color: var(--blue) !important;
+  font-weight: 600;
+}
+
+* { scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ LOGIN ═══════════════════ -->
+<div id="login-screen" class="screen active">
+
+  <button class="login-theme-btn" onclick="toggleDark()" title="Cambiar tema">
+    <svg class="icon-moon" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 13.293A8 8 0 0 1 6.707 2.707a8.001 8.001 0 1 0 10.586 10.586z"/></svg>
+    <svg class="icon-sun"  viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1zm4.22 1.78a1 1 0 0 1 1.415 1.415l-.707.707a1 1 0 0 1-1.415-1.415l.707-.707zM18 10a1 1 0 0 1-1 1h-1a1 1 0 1 1 0-2h1a1 1 0 0 1 1 1zm-2.78 4.22a1 1 0 0 1 0 1.415l-.707.707a1 1 0 0 1-1.415-1.415l.707-.707a1 1 0 0 1 1.415 0zM10 16a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1zM5.78 15.22a1 1 0 0 1-1.415 1.415l-.707-.707A1 1 0 0 1 5.07 14.5l.708.707zM4 10a1 1 0 0 1-1 1H2a1 1 0 1 1 0-2h1a1 1 0 0 1 1 1zm1.78-4.22A1 1 0 0 1 4.365 4.365l.707-.707A1 1 0 0 1 6.487 5.07l-.707.707A1 1 0 0 1 5.072 5.65zM10 6a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" clip-rule="evenodd"/></svg>
+  </button>
+
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="login-brand-sq">S</div>
+      <div>
+        <div class="login-brand-name">Stellantis Argentina</div>
+        <div class="login-brand-sub">Sistema de Gestión de Autopartes</div>
+      </div>
+    </div>
+
+    <div class="login-heading">Iniciar sesión</div>
+    <div class="login-desc">Ingrese sus credenciales para acceder al sistema.</div>
+
+    <div class="field-wrap">
+      <label class="field-label" for="login-user">Usuario</label>
+      <input class="field-input" type="text" id="login-user" placeholder="usuario.apellido"
+             autocomplete="off" oninput="clearFieldError('login-user','err-user')"/>
+      <div class="field-error" id="err-user">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="5"/><path d="M6 4v3M6 8.5v.5"/></svg>
+        El campo Usuario es obligatorio.
+      </div>
+    </div>
+
+    <div class="field-wrap">
+      <label class="field-label" for="login-pass">Contraseña</label>
+      <input class="field-input" type="password" id="login-pass" placeholder="••••••••"
+             oninput="clearFieldError('login-pass','err-pass')"
+             onkeydown="if(event.key==='Enter')doLogin()"/>
+      <div class="field-error" id="err-pass">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="5"/><path d="M6 4v3M6 8.5v.5"/></svg>
+        El campo Contraseña es obligatorio.
+      </div>
+    </div>
+
+    <button class="login-btn" onclick="doLogin()">Ingresar</button>
+    <div class="login-footer">v1.0 &nbsp;·&nbsp; Sprint 1 &nbsp;·&nbsp; Prototipo UX/UI &nbsp;·&nbsp; Equipo 7</div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════ APP ═══════════════════ -->
+<div id="app-screen" class="screen">
+  <nav class="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-sq">S</div>
+      <div>
+        <div class="sb-logo-name">Stellantis</div>
+        <div class="sb-logo-sub">Gestión de Autopartes</div>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-section-label">Principal</div>
+      <div class="nav-item active" onclick="goPage('dashboard',this)">
+        <span class="nav-icon">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <rect x="1" y="1" width="5" height="5" rx=".5"/><rect x="8" y="1" width="5" height="5" rx=".5"/>
+            <rect x="1" y="8" width="5" height="5" rx=".5"/><rect x="8" y="8" width="5" height="5" rx=".5"/>
+          </svg>
+        </span>
+        Dashboard
+      </div>
+      <div class="nav-item" onclick="goPage('contenedores',this)">
+        <span class="nav-icon">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <rect x="2" y="2" width="10" height="10" rx="1"/>
+            <path d="M2 5h10M2 9h10M5 2v10M9 2v10"/>
+          </svg>
+        </span>
+        Contenedores
+      </div>
+      <div class="nav-item" onclick="goPage('piezas',this)">
+        <span class="nav-icon">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M2 4h10M2 7h10M2 10h6"/>
+            <circle cx="11" cy="10" r="2"/>
+          </svg>
+        </span>
+        Piezas
+      </div>
+      <div class="nav-item" onclick="goPage('apertura',this)">
+        <span class="nav-icon">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M2 5l5-3.5L12 5v7H2V5z"/><path d="M5 12V8h4v4"/>
+          </svg>
+        </span>
+        Plan de Apertura
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-section-label">Gestión</div>
+      <div class="nav-item" onclick="goPage('importacion',this)">
+        <span class="nav-icon">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M7 9V2m-3 3l3-3 3 3"/><path d="M2 11h10"/>
+          </svg>
+        </span>
+        Importación
+      </div>
+      <div class="nav-item" onclick="goPage('alertas',this)">
+        <span class="nav-icon">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M7 1.5C4.5 1.5 3 3.5 3 6v3H2v1h10v-1h-1V6c0-2.5-1.5-4.5-4-4.5z"/>
+            <path d="M5.5 10.5a1.5 1.5 0 0 0 3 0"/>
+          </svg>
+        </span>
+        Alertas
+        <span class="nav-badge" id="alert-badge">3</span>
+      </div>
+    </div>
+
+    <div class="sb-bottom">
+      <div class="user-row">
+        <div class="user-av" id="sb-av">MB</div>
+        <div>
+          <div class="user-name" id="sb-name">M. Bisso</div>
+          <div class="user-role">Supervisor</div>
+        </div>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">
+        <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <path d="M9 2H12V12H9"/><path d="M6 9.5L9 7l-3-2.5"/><path d="M9 7H2"/>
+        </svg>
+        Cerrar sesión
+      </button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div class="topbar-tag" id="topbar-tag">RF01</div>
+      <div class="topbar-time" id="topbar-time">--:--:--</div>
+      <button class="theme-btn" onclick="toggleDark()" title="Cambiar tema">
+        <svg class="icon-moon" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 13.293A8 8 0 0 1 6.707 2.707a8.001 8.001 0 1 0 10.586 10.586z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1zm4.22 1.78a1 1 0 0 1 1.415 1.415l-.707.707a1 1 0 0 1-1.415-1.415l.707-.707zM18 10a1 1 0 0 1-1 1h-1a1 1 0 1 1 0-2h1a1 1 0 0 1 1 1zm-2.78 4.22a1 1 0 0 1 0 1.415l-.707.707a1 1 0 0 1-1.415-1.415l.707-.707a1 1 0 0 1 1.415 0zM10 16a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1zM5.78 15.22a1 1 0 0 1-1.415 1.415l-.707-.707A1 1 0 0 1 5.07 14.5l.708.707zM4 10a1 1 0 0 1-1 1H2a1 1 0 1 1 0-2h1a1 1 0 0 1 1 1zm1.78-4.22A1 1 0 0 1 4.365 4.365l.707-.707A1 1 0 0 1 6.487 5.07l-.707.707A1 1 0 0 1 5.072 5.65zM10 6a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" clip-rule="evenodd"/></svg>
+      </button>
+    </div>
+
+    <div class="content">
+
+      <!-- ─── DASHBOARD ─── -->
+      <div class="page active" id="page-dashboard">
+        <div class="kpi-grid">
+          <div class="kpi red">
+            <div class="kpi-label">Contenedores críticos</div>
+            <div class="kpi-val c-red">3</div>
+            <div class="kpi-sub">Apertura inmediata requerida</div>
+          </div>
+          <div class="kpi amber">
+            <div class="kpi-label">Stock bajo</div>
+            <div class="kpi-val c-amber">5</div>
+            <div class="kpi-sub">Atención en las próximas horas</div>
+          </div>
+          <div class="kpi green">
+            <div class="kpi-label">Stock normal</div>
+            <div class="kpi-val c-green">12</div>
+            <div class="kpi-sub">Sin acción requerida</div>
+          </div>
+          <div class="kpi blue">
+            <div class="kpi-label">Eficiencia semanal</div>
+            <div class="kpi-val c-blue">94%</div>
+            <div class="kpi-sub" style="color:var(--green);font-weight:600">+8% vs. semana anterior</div>
+          </div>
+        </div>
+
+        <div class="sec-hdr">
+          <div class="sec-title">Semáforo de Priorización</div>
+          <div class="sec-count">9 piezas</div>
+          <button class="help-btn" onclick="toggleHelp('help-sem',event)">?</button>
+          <div class="help-popover" id="help-sem">
+            <div class="help-popover-title">Semáforo de Priorización</div>
+            <div class="help-popover-body">
+              Muestra el nivel de stock actual de cada pieza. El color indica la urgencia de apertura:
+              <div class="help-popover-row" style="margin-top:8px">
+                <div class="help-dot red"></div>
+                <div><strong>Crítico</strong> — stock por debajo del umbral mínimo. Abrir contenedor de inmediato.</div>
+              </div>
+              <div class="help-popover-row">
+                <div class="help-dot amber"></div>
+                <div><strong>Bajo</strong> — stock por debajo del nivel de alerta. Planificar apertura próxima.</div>
+              </div>
+              <div class="help-popover-row">
+                <div class="help-dot green"></div>
+                <div><strong>Normal</strong> — stock suficiente. No requiere acción inmediata.</div>
+              </div>
+              <div class="help-popover-row">
+                <div class="help-dot blue"></div>
+                <div>El número a la derecha indica las unidades disponibles en planta.</div>
+              </div>
+            </div>
+          </div>
+          <div class="sec-actions">
+            <button class="btn btn-ghost btn-sm" onclick="refreshSem()">Actualizar</button>
+          </div>
+        </div>
+        <div class="sem-grid" id="sem-grid"></div>
+
+        <div class="dash-cols">
+          <div>
+            <div class="sec-hdr">
+              <div class="sec-title">Últimas aperturas</div>
+              <div class="sec-count">Hoy</div>
+              <button class="help-btn" onclick="toggleHelp('help-openings',event)">?</button>
+              <div class="help-popover" id="help-openings">
+                <div class="help-popover-title">Últimas Aperturas</div>
+                <div class="help-popover-body">
+                  Registro de los contenedores abiertos durante el día en curso. Los estados posibles son:
+                  <div class="help-popover-row" style="margin-top:8px">
+                    <div class="help-dot green"></div>
+                    <div><strong>OK</strong> — apertura realizada sin inconvenientes.</div>
+                  </div>
+                  <div class="help-popover-row">
+                    <div class="help-dot amber"></div>
+                    <div><strong>Atención</strong> — apertura realizada con observaciones menores.</div>
+                  </div>
+                  <div class="help-popover-row">
+                    <div class="help-dot red"></div>
+                    <div><strong>Revisión</strong> — apertura con incidencias. Requiere seguimiento.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>#</th><th>Contenedor</th><th>Pieza</th><th>Operario</th><th>Hora</th><th>Estado</th></tr></thead>
+                <tbody id="tbl-openings"></tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <div class="sec-hdr"><div class="sec-title">Líneas de producción</div></div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Línea</th><th>Cobertura</th><th>Estado</th></tr></thead>
+                <tbody>
+                  <tr><td>Línea A</td><td class="mono">4.2 hs</td><td><span class="badge amber">BAJA</span></td></tr>
+                  <tr><td>Línea B</td><td class="mono">1.1 hs</td><td><span class="badge red">CRÍTICA</span></td></tr>
+                  <tr><td>Línea C</td><td class="mono">8.0 hs</td><td><span class="badge green">OK</span></td></tr>
+                  <tr><td>Línea D</td><td class="mono">6.5 hs</td><td><span class="badge green">OK</span></td></tr>
+                  <tr><td>Línea E</td><td class="mono">2.8 hs</td><td><span class="badge amber">BAJA</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── CONTENEDORES ─── -->
+      <div class="page" id="page-contenedores">
+        <div class="sec-hdr">
+          <div class="sec-title">Listado de Contenedores Únicos</div>
+          <div class="sec-count" id="contenedores-count">0 contenedores</div>
+          <button class="help-btn" onclick="toggleHelp('help-cont',event)">?</button>
+          <div class="help-popover" id="help-cont">
+            <div class="help-popover-title">Listado de Contenedores</div>
+            <div class="help-popover-body">
+              Muestra los contenedores únicos importados en la base de datos junto con su punto de descarga.
+              Haga clic sobre un contenedor para ver el desglose de piezas que contiene.
+            </div>
+          </div>
+          <div class="sec-actions">
+            <button class="btn btn-ghost btn-sm" onclick="cargarContenedores()">Actualizar</button>
+          </div>
+        </div>
+
+        <div class="containers-layout">
+          <!-- Panel Izquierdo: Lista de Contenedores -->
+          <div class="containers-list-panel">
+            <div class="search-box-wrap" style="margin-bottom: 12px;">
+              <input type="text" id="container-search" class="field-input" placeholder="Buscar por Nro. Contenedor o Pto. Descarga..." oninput="filtrarContenedores()">
+            </div>
+            <div class="tbl-wrap" style="max-height: 550px; overflow-y: auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nro. Contenedor</th>
+                    <th>Pto. Descarga</th>
+                  </tr>
+                </thead>
+                <tbody id="tbl-contenedores">
+                  <tr>
+                    <td colspan="2" style="text-align: center; color: var(--muted); padding: 16px;">Cargando contenedores...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Panel Derecho: Detalle del Contenedor Seleccionado -->
+          <div class="container-detail-panel">
+            <div class="detail-header" id="detail-header-empty" style="padding: 32px 24px; text-align: center; color: var(--muted); border: 1px dashed var(--border2); border-radius: var(--r); background: var(--surface);">
+              Seleccione un contenedor del listado para ver su detalle de piezas.
+            </div>
+            <div class="detail-content" id="detail-content-area" style="display: none;">
+              <div class="sec-hdr" style="margin-bottom: 16px;">
+                <div class="sec-title" id="selected-container-title" style="font-size: 15px; font-weight: 700;">Contenedor: -</div>
+                <div class="sec-count" id="selected-container-pieces-count">0 piezas</div>
+              </div>
+              <div class="tbl-wrap" style="max-height: 500px; overflow-y: auto;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Plano</th>
+                      <th>Descripción Plano</th>
+                      <th style="text-align: right;">Cantidad</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbl-piezas">
+                    <!-- Piezas dynamically filled here -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── PIEZAS ─── -->
+      <div class="page" id="page-piezas">
+        <div class="sec-hdr">
+          <div class="sec-title">Listado de Piezas</div>
+          <div class="sec-count" id="piezas-count">0 piezas</div>
+          <button class="help-btn" onclick="toggleHelp('help-piezas',event)">?</button>
+          <div class="help-popover" id="help-piezas">
+            <div class="help-popover-title">Listado de Piezas</div>
+            <div class="help-popover-body">
+              Muestra todas las piezas importadas desde el archivo .xlsm (Fuente B).
+              Las columnas de flujo corresponden al día de hoy y mañana según la fecha de importación.
+              Use el buscador para filtrar por Ref o Designación.
+            </div>
+          </div>
+          <div class="sec-actions">
+            <button class="btn btn-ghost btn-sm" onclick="cargarPiezas()">Actualizar</button>
+          </div>
+        </div>
+
+        <div class="search-box-wrap" style="margin-bottom: 14px;">
+          <input type="text" id="piezas-search" class="field-input"
+                 placeholder="Buscar por Ref, Designação, Darsena..."
+                 oninput="filtrarPiezas()">
+        </div>
+
+        <div class="tbl-wrap" id="piezas-tbl-wrap">
+          <table id="piezas-table">
+            <thead id="piezas-thead"><tr><td colspan="7" style="padding:16px;color:var(--muted);text-align:center">Cargando piezas...</td></tr></thead>
+            <tbody id="piezas-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ─── PLAN DE APERTURA ─── -->
+      <div class="page" id="page-apertura">
+        <div class="sec-hdr">
+          <div class="sec-title">Plan de Apertura de Contenedores</div>
+          <div class="sec-count">8 contenedores</div>
+          <button class="help-btn" onclick="toggleHelp('help-aper',event)">?</button>
+          <div class="help-popover" id="help-aper">
+            <div class="help-popover-title">Plan de Apertura</div>
+            <div class="help-popover-body">
+              Lista ordenada por urgencia de los contenedores a abrir. La columna <strong>Prior.</strong> indica el orden recomendado:
+              <div class="help-popover-row" style="margin-top:8px">
+                <div class="help-dot red"></div>
+                <div>Prioridad <strong>1–3</strong> (rojo): apertura inmediata, stock crítico.</div>
+              </div>
+              <div class="help-popover-row">
+                <div class="help-dot amber"></div>
+                <div>Prioridad <strong>4–7</strong> (amarillo): apertura en las próximas horas.</div>
+              </div>
+              <div class="help-popover-row">
+                <div class="help-dot green"></div>
+                <div>Prioridad <strong>8+</strong> (verde): stock suficiente, sin urgencia.</div>
+              </div>
+              Use <strong>Regenerar plan</strong> para recalcular el orden según el stock actual. Use <strong>Asignar</strong> para vincular la apertura a un operario.
+            </div>
+          </div>
+          <div class="sec-actions">
+            <button class="btn btn-ghost btn-sm">Exportar</button>
+            <button class="btn btn-primary btn-sm" onclick="regenPlan()">Regenerar plan</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Prior.</th><th>Contenedor</th><th>Pieza</th>
+                <th>Stock</th><th>Cobertura</th><th>Línea</th>
+                <th>Estado</th><th>Acción</th>
+              </tr>
+            </thead>
+            <tbody id="tbl-apertura"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ─── IMPORTACIÓN ─── -->
+      <div class="page" id="page-importacion">
+        <div class="sec-hdr">
+          <div class="sec-title">Importación de Stock</div>
+          <button class="help-btn" onclick="toggleHelp('help-imp',event)">?</button>
+          <div class="help-popover" id="help-imp">
+            <div class="help-popover-title">Importación de Stock</div>
+            <div class="help-popover-body">
+              El sistema acepta datos desde dos fuentes independientes:
+              <div class="help-popover-row" style="margin-top:8px">
+                <div class="help-dot blue"></div>
+                <div><strong>Fuente A — Stock de Planta:</strong> archivo exportado desde el software corporativo de planta (SAP / sistema interno). Formatos: .xlsx o .csv.</div>
+              </div>
+              <div class="help-popover-row">
+                <div class="help-dot amber"></div>
+                <div><strong>Fuente B — Inventario Proveedor:</strong> manifiesto de contenedor provisto por el proveedor externo. Formatos: .xlsx o .csv.</div>
+              </div>
+              Puede procesar cada fuente por separado o usar <strong>Sincronizar ambas</strong> para importar las dos en simultáneo. Al finalizar, el semáforo se actualiza automáticamente.
+            </div>
+          </div>
+          <div class="sec-actions">
+            <button class="btn btn-ghost btn-sm" onclick="syncBoth()">Sincronizar ambas fuentes</button>
+          </div>
+        </div>
+
+        <div class="import-cols">
+          <div class="imp-panel">
+            <div class="imp-head">
+              <div class="imp-dot blue"></div>
+              <div class="imp-head-title">Stock de Planta</div>
+              <div class="imp-head-tag">Fuente A</div>
+            </div>
+            <div class="imp-body">
+              <div class="drop-zone" id="dz-a"
+                   onclick="pickFile('a')"
+                   ondragover="dzOver(event,'a')" ondragleave="dzLeave('a')" ondrop="dzDrop(event,'a')">
+                <div class="drop-icon-wrap">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                    <path d="M8 11V4m-3 3l3-3 3 3"/><path d="M3 13h10"/>
+                  </svg>
+                </div>
+                <div class="drop-title">Arrastrar o seleccionar archivo</div>
+                <div class="drop-sub">Excel (.xlsx) o CSV — Software corporativo</div>
+                <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();pickFile('a')">Seleccionar</button>
+              </div>
+              <div class="file-pill" id="fp-a"></div>
+              <div class="imp-actions">
+                <button class="btn btn-primary btn-sm" onclick="runImport('a','stock_planta.xlsx',842)">Procesar</button>
+                <button class="btn btn-ghost btn-sm"   onclick="clearZone('a')">Limpiar</button>
+              </div>
+              <div class="prog-wrap" id="pp-a" style="display:none">
+                <div class="prog-label" id="pl-a">Procesando...</div>
+                <div class="prog-track"><div class="prog-fill blue" id="pb-a"></div></div>
+              </div>
+              <div class="imp-log" id="log-a">
+                <div class="log-line">Sistema listo. Seleccione un archivo para comenzar.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="imp-panel">
+            <div class="imp-head">
+              <div class="imp-dot amber"></div>
+              <div class="imp-head-title">Inventario Proveedor</div>
+              <div class="imp-head-tag">Fuente B</div>
+            </div>
+            <div class="imp-body">
+              <div class="drop-zone" id="dz-b"
+                   onclick="pickFile('b')"
+                   ondragover="dzOver(event,'b')" ondragleave="dzLeave('b')" ondrop="dzDrop(event,'b')">
+                <div class="drop-icon-wrap">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                    <path d="M8 11V4m-3 3l3-3 3 3"/><path d="M3 13h10"/>
+                  </svg>
+                </div>
+                <div class="drop-title">Arrastrar o seleccionar archivo</div>
+                <div class="drop-sub">Excel con macros (.xlsm) — Plan de piezas del proveedor</div>
+                <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();pickFile('b')">Seleccionar</button>
+              </div>
+              <div class="file-pill" id="fp-b"></div>
+              <div class="imp-actions">
+                <button class="btn btn-primary btn-sm" onclick="runImportPiezas()">Procesar</button>
+                <button class="btn btn-ghost btn-sm"   onclick="clearZone('b')">Limpiar</button>
+              </div>
+              <div class="prog-wrap" id="pp-b" style="display:none">
+                <div class="prog-label" id="pl-b">Procesando...</div>
+                <div class="prog-track"><div class="prog-fill amber" id="pb-b"></div></div>
+              </div>
+              <div class="imp-log" id="log-b">
+                <div class="log-line">Sistema listo. Seleccione un archivo .xlsm para comenzar.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sec-hdr"><div class="sec-title">Historial de importaciones</div></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Fecha / Hora</th><th>Fuente</th><th>Archivo</th><th>Registros</th><th>Usuario</th><th>Estado</th></tr></thead>
+            <tbody id="imp-hist">
+              <tr><td class="mono">13/05 08:14</td><td><span class="badge blue">PLANTA</span></td><td>stock_planta_mayo.xlsx</td><td class="mono">842</td><td>M. Bisso</td><td><span class="badge green">OK</span></td></tr>
+              <tr><td class="mono">12/05 17:55</td><td><span class="badge amber">PROVEEDOR</span></td><td>inventario_proveedores.csv</td><td class="mono">1240</td><td>M. Bisso</td><td><span class="badge green">OK</span></td></tr>
+              <tr><td class="mono">12/05 09:02</td><td><span class="badge blue">PLANTA</span></td><td>export_sap_linea_b.xlsx</td><td class="mono">0</td><td>F. Serlik</td><td><span class="badge red">ERROR</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ─── ALERTAS ─── -->
+      <div class="page" id="page-alertas">
+        <div class="sec-hdr">
+          <div class="sec-title">Alertas de Stock Crítico</div>
+          <div class="sec-count" id="alert-count">3 activas</div>
+          <button class="help-btn" onclick="toggleHelp('help-alerts',event)">?</button>
+          <div class="help-popover" id="help-alerts">
+            <div class="help-popover-title">Alertas de Stock</div>
+            <div class="help-popover-body">
+              Las alertas se generan automáticamente cuando el stock de una pieza cruza un umbral definido:
+              <div class="help-popover-row" style="margin-top:8px">
+                <div class="help-dot red"></div>
+                <div><strong>Crítico</strong> — stock por debajo del mínimo operativo. Requiere acción inmediata.</div>
+              </div>
+              <div class="help-popover-row">
+                <div class="help-dot amber"></div>
+                <div><strong>Advertencia</strong> — stock en zona de riesgo. Planificar reposición.</div>
+              </div>
+              Use <strong>Reconocer</strong> para confirmar que la alerta fue atendida. Las alertas reconocidas pasan al historial.
+            </div>
+          </div>
+          <div class="sec-actions">
+            <button class="btn btn-ghost btn-sm" onclick="ackAll()">Reconocer todas</button>
+          </div>
+        </div>
+        <div class="alert-list" id="alert-list"></div>
+
+        <div style="margin-top:24px">
+          <div class="sec-hdr"><div class="sec-title">Historial de alertas</div></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Fecha</th><th>Pieza</th><th>Nivel</th><th>Acción tomada</th><th>Registrado por</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">12/05 14:32</td><td>SUSP-2091</td><td><span class="badge red">CRÍTICO</span></td><td>Apertura contenedor C-041</td><td>M. Bisso</td></tr>
+                <tr><td class="mono">11/05 09:17</td><td>MOT-1105</td><td><span class="badge amber">ADVERTENCIA</span></td><td>Reasignación stock línea C</td><td>R. Torino</td></tr>
+                <tr><td class="mono">10/05 16:44</td><td>TRANS-880</td><td><span class="badge red">CRÍTICO</span></td><td>Apertura contenedor C-028</td><td>M. Bisso</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast-area" id="toast-area"></div>
+
+<!-- Inputs de archivo ocultos para la selección de archivos -->
+<input type="file" id="file-input-a" accept=".xlsx,.xlsm" style="display: none;" onchange="handleFileChange(event, 'a')">
+<input type="file" id="file-input-b" accept=".xlsm" style="display: none;" onchange="handleFileChange(event, 'b')">
+
+<script>
+/* ════ DARK MODE ════ */
+(function() {
+  if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
+})();
+function toggleDark() {
+  const d = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('theme', d ? 'dark' : 'light');
+}
+
+/* ════ HELP POPOVERS ════ */
+function toggleHelp(id, e) {
+  e.stopPropagation();
+  const target = document.getElementById(id);
+  const wasOpen = target.classList.contains('open');
+  document.querySelectorAll('.help-popover').forEach(p => p.classList.remove('open'));
+  if (!wasOpen) target.classList.add('open');
+}
+document.addEventListener('click', () => {
+  document.querySelectorAll('.help-popover').forEach(p => p.classList.remove('open'));
+});
+
+/* ════ LOGIN VALIDACIÓN ════ */
+function clearFieldError(inputId, errId) {
+  document.getElementById(inputId).classList.remove('invalid');
+  document.getElementById(errId).classList.remove('show');
+}
+
+function doLogin() {
+  const userEl = document.getElementById('login-user');
+  const passEl = document.getElementById('login-pass');
+  const errU   = document.getElementById('err-user');
+  const errP   = document.getElementById('err-pass');
+  let valid = true;
+
+  if (!userEl.value.trim()) {
+    userEl.classList.add('invalid');
+    errU.classList.add('show');
+    valid = false;
+  }
+  if (!passEl.value) {
+    passEl.classList.add('invalid');
+    errP.classList.add('show');
+    valid = false;
+  }
+  if (!valid) return;
+
+  const user = userEl.value.trim();
+  const ini  = user.split(/[\s.]+/).map(w => w[0]).filter(Boolean).join('').slice(0,2).toUpperCase() || 'MB';
+  document.getElementById('sb-av').textContent   = ini;
+  document.getElementById('sb-name').textContent = user.slice(0, 14);
+  document.getElementById('login-screen').classList.remove('active');
+  document.getElementById('app-screen').classList.add('active');
+  buildSem(); buildAper(); buildAlerts(); buildOpenings(); startClock();
+  toast('Sesión iniciada correctamente', 'ok');
+}
+
+function doLogout() {
+  document.getElementById('app-screen').classList.remove('active');
+  document.getElementById('login-screen').classList.add('active');
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+}
+
+/* ════ NAVEGACIÓN ════ */
+const pageMeta = {
+  dashboard:   ['Dashboard',                'RF01'],
+  contenedores:['Contenedores',             'RF06'],
+  piezas:      ['Piezas',                   'RF07'],
+  apertura:    ['Plan de Apertura',         'RF04'],
+  importacion: ['Importación de Stock',     'RF03'],
+  alertas:     ['Alertas de Stock Crítico', 'RF05'],
+};
+function goPage(p, el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.page').forEach(pg => pg.classList.remove('active'));
+  document.getElementById('page-' + p).classList.add('active');
+  const [title, tag] = pageMeta[p] || ['', ''];
+  document.getElementById('topbar-title').textContent = title;
+  document.getElementById('topbar-tag').textContent   = tag;
+  document.querySelectorAll('.help-popover').forEach(pop => pop.classList.remove('open'));
+  if (p === 'contenedores') {
+    cargarContenedores();
+  }
+  if (p === 'piezas') {
+    cargarPiezas();
+  }
+}
+
+/* ════ DATOS ════ */
+const semData = [
+  { id:'C-014', name:'SUSP-2091',  piece:'Suspensión Delantera', stock:4,  max:80, st:'red'   },
+  { id:'C-007', name:'MOT-1105',   piece:'Conjunto Motor',        stock:8,  max:80, st:'red'   },
+  { id:'C-022', name:'TRANS-880',  piece:'Transmisión',           stock:11, max:80, st:'red'   },
+  { id:'C-031', name:'FRENO-410',  piece:'Sistema de Frenos',     stock:22, max:80, st:'amber' },
+  { id:'C-018', name:'DIR-220',    piece:'Dirección Asistida',    stock:28, max:80, st:'amber' },
+  { id:'C-009', name:'ELEC-550',   piece:'Módulo Eléctrico',      stock:31, max:80, st:'amber' },
+  { id:'C-055', name:'AIRBAG-60',  piece:'Módulo Airbag',         stock:60, max:80, st:'green' },
+  { id:'C-060', name:'TAPA-330',   piece:'Capó',                  stock:72, max:80, st:'green' },
+  { id:'C-071', name:'INT-445',    piece:'Tablero Interior',      stock:65, max:80, st:'green' },
+];
+const openData = [
+  { id:'C-041', piece:'SUSP-2091', op:'R. Torino',   time:'07:42', st:'green' },
+  { id:'C-035', piece:'MOT-0890',  op:'G. Ferreyra', time:'07:58', st:'green' },
+  { id:'C-012', piece:'ELEC-221',  op:'R. Torino',   time:'08:14', st:'amber' },
+  { id:'C-028', piece:'TRANS-780', op:'G. Ferreyra', time:'08:31', st:'green' },
+  { id:'C-019', piece:'FRENO-308', op:'R. Torino',   time:'08:47', st:'red'   },
+];
+const aperData = [
+  { p:1, id:'C-014', piece:'SUSP-2091',  stock:4,  cob:'1.1 hs', linea:'B', st:'red'   },
+  { p:2, id:'C-007', piece:'MOT-1105',   stock:8,  cob:'1.8 hs', linea:'B', st:'red'   },
+  { p:3, id:'C-022', piece:'TRANS-880',  stock:11, cob:'2.2 hs', linea:'A', st:'red'   },
+  { p:4, id:'C-031', piece:'FRENO-410',  stock:22, cob:'4.1 hs', linea:'A', st:'amber' },
+  { p:5, id:'C-018', piece:'DIR-220',    stock:28, cob:'5.0 hs', linea:'E', st:'amber' },
+  { p:6, id:'C-009', piece:'ELEC-550',   stock:31, cob:'5.5 hs', linea:'C', st:'amber' },
+  { p:7, id:'C-044', piece:'CHASIS-100', stock:45, cob:'7.2 hs', linea:'D', st:'amber' },
+  { p:8, id:'C-055', piece:'AIRBAG-60',  stock:60, cob:'9.0 hs', linea:'C', st:'green' },
+];
+const alertData = [
+  { id:1, type:'crit', level:'red',   title:'Stock crítico — SUSP-2091', desc:'Stock: 4 u. · Cobertura: 1.1 hs · Línea B en riesgo inmediato',  time:'08:52', acked:false },
+  { id:2, type:'crit', level:'red',   title:'Stock crítico — MOT-1105',  desc:'Stock: 8 u. · Cobertura: 1.8 hs · Línea B próxima a detenerse', time:'08:48', acked:false },
+  { id:3, type:'warn', level:'amber', title:'Stock bajo — FRENO-410',    desc:'Stock: 22 u. · Cobertura: 4.1 hs · Requiere atención en 2 hs',  time:'08:30', acked:false },
+];
+const alertSVG = {
+  red:   `<svg viewBox="0 0 14 14" fill="none" stroke="var(--red)"   stroke-width="1.6" stroke-linecap="round"><path d="M7 2L12.5 12H1.5L7 2z"/><path d="M7 6v3M7 10.5v.5"/></svg>`,
+  amber: `<svg viewBox="0 0 14 14" fill="none" stroke="var(--amber)" stroke-width="1.6" stroke-linecap="round"><path d="M7 2L12.5 12H1.5L7 2z"/><path d="M7 6v3M7 10.5v.5"/></svg>`,
+};
+
+/* ════ BUILD FUNCTIONS ════ */
+function buildSem() {
+  const pct = d => Math.round((d.stock / d.max) * 100);
+  document.getElementById('sem-grid').innerHTML = semData.map(d => `
+    <div class="sem-card">
+      <div class="sem-dot ${d.st}"></div>
+      <div class="sem-body">
+        <div class="sem-name">${d.name}<span style="font-weight:400;color:var(--faint);font-size:11px;font-family:var(--mono)"> ${d.id}</span></div>
+        <div class="sem-piece">${d.piece}</div>
+        <div class="sem-track"><div class="sem-fill ${d.st}" style="width:${pct(d)}%"></div></div>
+      </div>
+      <div class="sem-num ${d.st}">${d.stock}</div>
+    </div>`).join('');
+}
+function refreshSem() {
+  semData.forEach(d => {
+    if (d.st==='red')   d.stock = Math.max(2,  d.stock + Math.floor(Math.random()*4-1));
+    if (d.st==='amber') d.stock = Math.max(15, d.stock + Math.floor(Math.random()*6-2));
+    if (d.st==='green') d.stock = Math.max(40, d.stock + Math.floor(Math.random()*8-3));
+  });
+  buildSem(); toast('Semáforo actualizado', 'ok');
+}
+
+function buildAper() {
+  const label = { red:'Crítico', amber:'Atención', green:'OK' };
+  document.getElementById('tbl-apertura').innerHTML = aperData.map(d => `
+    <tr>
+      <td><div class="prio p${d.p<=3?1:d.p<=7?2:3}">${d.p}</div></td>
+      <td class="mono">${d.id}</td>
+      <td style="font-weight:600">${d.piece}</td>
+      <td class="mono">${d.stock} u.</td>
+      <td class="mono">${d.cob}</td>
+      <td><span class="badge blue">Línea ${d.linea}</span></td>
+      <td><span class="badge ${d.st}">${label[d.st]}</span></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="toast('Apertura asignada: ${d.id}','ok')">Asignar</button></td>
+    </tr>`).join('');
+}
+function regenPlan() {
+  aperData.sort(() => Math.random() - .5);
+  aperData.forEach((d, i) => d.p = i + 1);
+  buildAper(); toast('Plan regenerado automáticamente', 'ok');
+}
+
+function buildOpenings() {
+  const label = { green:'OK', amber:'Atención', red:'Revisión' };
+  document.getElementById('tbl-openings').innerHTML = openData.map((d, i) => `
+    <tr>
+      <td class="mono">${i+1}</td><td class="mono">${d.id}</td>
+      <td style="font-weight:600">${d.piece}</td><td>${d.op}</td>
+      <td class="mono">${d.time}</td>
+      <td><span class="badge ${d.st}">${label[d.st]}</span></td>
+    </tr>`).join('');
+}
+
+function buildAlerts() {
+  const active = alertData.filter(a => !a.acked);
+  const badge  = document.getElementById('alert-badge');
+  badge.textContent = active.length;
+  badge.classList.add('bump');
+  setTimeout(() => badge.classList.remove('bump'), 300);
+  document.getElementById('alert-count').textContent = active.length + ' activas';
+  document.getElementById('alert-list').innerHTML = active.length
+    ? active.map(a => `
+        <div class="alert-row ${a.type}">
+          <div class="alert-level ${a.level}">${alertSVG[a.level]}</div>
+          <div class="alert-body">
+            <div class="alert-title">${a.title}</div>
+            <div class="alert-desc">${a.desc}</div>
+          </div>
+          <div class="alert-time">${a.time}</div>
+          <button class="ack-btn" onclick="ackOne(${a.id})">Reconocer</button>
+        </div>`).join('')
+    : '<div style="padding:18px 0;color:var(--muted);font-size:13px">No hay alertas activas en este momento.</div>';
+}
+function ackOne(id) {
+  const a = alertData.find(x => x.id === id);
+  if (a) { a.acked = true; buildAlerts(); toast('Alerta reconocida', 'ok'); }
+}
+function ackAll() {
+  alertData.forEach(a => a.acked = true);
+  buildAlerts(); toast('Todas las alertas reconocidas', 'ok');
+}
+
+/* ════ IMPORTACIÓN REAL ════ */
+let selectedFiles = { a: null, b: null };
+let runA = false, runB = false;
+
+function pickFile(z) {
+  document.getElementById('file-input-' + z).click();
+}
+
+function handleFileChange(event, z) {
+  const file = event.target.files[0];
+  if (file) {
+    selectedFiles[z] = file;
+    setFile(z, file.name);
+    toast('Archivo seleccionado: ' + file.name, 'info');
+  }
+}
+
+function setFile(z, name) {
+  const fp = document.getElementById('fp-'+z);
+  fp.textContent = name; fp.style.display = 'block';
+}
+
+function clearZone(z) {
+  document.getElementById('fp-'+z).style.display = 'none';
+  document.getElementById('pp-'+z).style.display = 'none';
+  document.getElementById('pb-'+z).style.width   = '0%';
+  document.getElementById('log-'+z).innerHTML = '<div class="log-line">Zona limpiada. Sistema listo.</div>';
+  document.getElementById('file-input-'+z).value = '';
+  selectedFiles[z] = null;
+  if (z==='a') runA = false; else runB = false;
+}
+
+function runImport(z, defFile, recs) {
+  if (z==='a' && runA) { toast('Importación ya en curso (Fuente A)', 'err'); return; }
+  if (z==='b' && runB) { toast('Importación ya en curso (Fuente B)', 'err'); return; }
+  
+  const file = selectedFiles[z];
+  if (!file) {
+    toast('Por favor, selecciona un archivo primero.', 'err');
+    return;
+  }
+  
+  if (z==='a') runA = true; else runB = true;
+  
+  const pp = document.getElementById('pp-'+z);
+  const pb = document.getElementById('pb-'+z);
+  const pl = document.getElementById('pl-'+z);
+  const log = document.getElementById('log-'+z);
+  
+  pp.style.display = 'block';
+  pb.style.width = '20%';
+  pl.textContent = file.name + ' — 20%';
+  log.innerHTML = '<div class="log-line info">Iniciando lectura de archivo...</div>';
+  
+  setTimeout(() => {
+    pb.style.width = '50%';
+    pl.textContent = file.name + ' — 50%';
+    const line = document.createElement('div');
+    line.className = 'log-line info';
+    line.textContent = 'Enviando y procesando en servidor local...';
+    log.appendChild(line);
+    
+    // Subir el archivo mediante FormData al endpoint /procesar de Flask
+    const formData = new FormData();
+    formData.append('archivo', file);
+    
+    fetch('/procesar', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => {
+      if (!response.ok) {
+        return response.json().then(err => { throw new Error(err.error || 'Error desconocido'); });
+      }
+      return response.json();
+    })
+    .then(data => {
+      pb.style.width = '100%';
+      pl.textContent = 'Completado';
+      
+      log.innerHTML = '';
+      log.innerHTML += `<div class="log-line ok">✓ Archivo procesado correctamente.</div>`;
+      log.innerHTML += `<div class="log-line ok">✓ Filtro aplicado (DISPONIBLE, EN PLANTA, PAGADO == "SI").</div>`;
+      log.innerHTML += `<div class="log-line ok">✓ Se guardaron ${data.registros} registros.</div>`;
+      log.innerHTML += `<div class="log-line ok">✓ Base de datos y tabla actualizadas en SQLite.</div>`;
+      log.scrollTop = log.scrollHeight;
+      
+      if (z==='a') runA = false; else runB = false;
+      addHist(z, file.name, data.registros);
+      toast('Importación exitosa: ' + data.registros + ' registros guardados', 'ok');
+    })
+    .catch(error => {
+      pb.style.width = '0%';
+      pl.textContent = 'Error en el proceso';
+      
+      const line = document.createElement('div');
+      line.className = 'log-line err';
+      line.textContent = 'Error: ' + error.message;
+      log.appendChild(line);
+      log.scrollTop = log.scrollHeight;
+      
+      if (z==='a') runA = false; else runB = false;
+      toast('Error: ' + error.message, 'err');
+    });
+  }, 600);
+}
+
+function syncBoth() {
+  runImport('a');
+  setTimeout(() => runImportPiezas(), 700);
+}
+
+/* ════ IMPORTACIÓN PIEZAS — Fuente B ════ */
+function runImportPiezas() {
+  if (runB) { toast('Importación ya en curso (Fuente B)', 'err'); return; }
+
+  const file = selectedFiles['b'];
+  if (!file) {
+    toast('Por favor, selecciona un archivo .xlsm primero.', 'err');
+    return;
+  }
+
+  runB = true;
+  const pp  = document.getElementById('pp-b');
+  const pb  = document.getElementById('pb-b');
+  const pl  = document.getElementById('pl-b');
+  const log = document.getElementById('log-b');
+
+  pp.style.display = 'block';
+  pb.style.width   = '20%';
+  pl.textContent   = file.name + ' — 20%';
+  log.innerHTML    = '<div class="log-line info">Leyendo archivo de piezas (.xlsm)...</div>';
+
+  setTimeout(() => {
+    pb.style.width = '55%';
+    pl.textContent = file.name + ' — 55%';
+    const l2 = document.createElement('div');
+    l2.className   = 'log-line info';
+    l2.textContent = 'Enviando al servidor para análisis con pandas...';
+    log.appendChild(l2);
+
+    const formData = new FormData();
+    formData.append('archivo', file);
+
+    fetch('/procesar_piezas', { method: 'POST', body: formData })
+      .then(response => {
+        if (!response.ok) return response.json().then(err => { throw new Error(err.error || 'Error desconocido'); });
+        return response.json();
+      })
+      .then(data => {
+        pb.style.width = '100%';
+        pl.textContent = 'Completado';
+        log.innerHTML  = '';
+        log.innerHTML += `<div class="log-line ok">✓ Archivo .xlsm procesado correctamente.</div>`;
+        log.innerHTML += `<div class="log-line ok">✓ Columnas leídas: Ref, Designação, Flujo Espe, Darsena, MAG + BDL.</div>`;
+        log.innerHTML += `<div class="log-line ok">✓ Columnas de flujo: ${data.col_hoy} (hoy) y ${data.col_man} (mañana).</div>`;
+        log.innerHTML += `<div class="log-line ok">✓ ${data.registros} registros guardados en tabla <em>piezas</em>.</div>`;
+        log.scrollTop  = log.scrollHeight;
+        runB = false;
+        addHist('b', file.name, data.registros);
+        toast('Piezas importadas: ' + data.registros + ' registros en tabla piezas', 'ok');
+      })
+      .catch(error => {
+        pb.style.width = '0%';
+        pl.textContent = 'Error en el proceso';
+        const le = document.createElement('div');
+        le.className   = 'log-line err';
+        le.textContent = 'Error: ' + error.message;
+        log.appendChild(le);
+        log.scrollTop  = log.scrollHeight;
+        runB = false;
+        toast('Error: ' + error.message, 'err');
+      });
+  }, 600);
+}
+
+function addHist(z, fname, recs) {
+  const tbody = document.getElementById('imp-hist');
+  const now   = new Date();
+  const ts = `${now.getDate().toString().padStart(2,'0')}/${(now.getMonth()+1).toString().padStart(2,'0')} `
+           + now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  const badge = z==='a' ? '<span class="badge blue">PLANTA</span>' : '<span class="badge amber">PROVEEDOR</span>';
+  const row = document.createElement('tr');
+  row.innerHTML = `<td class="mono">${ts}</td><td>${badge}</td><td>${fname}</td>`
+                + `<td class="mono">${recs}</td>`
+                + `<td>${document.getElementById('sb-name').textContent}</td>`
+                + `<td><span class="badge green">OK</span></td>`;
+  tbody.insertBefore(row, tbody.firstChild);
+}
+
+function dzOver(e,z)  { e.preventDefault(); document.getElementById('dz-'+z).classList.add('over'); }
+function dzLeave(z)   { document.getElementById('dz-'+z).classList.remove('over'); }
+function dzDrop(e,z)  {
+  e.preventDefault();
+  document.getElementById('dz-'+z).classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f) {
+    selectedFiles[z] = f;
+    setFile(z, f.name);
+    toast('Archivo cargado: '+f.name,'info');
+  }
+}
+
+/* ════ RELOJ ════ */
+function startClock() {
+  const el = document.getElementById('topbar-time');
+  const tick = () => { el.textContent = new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); setTimeout(tick,1000); };
+  tick();
+}
+
+/* ════ TOAST ════ */
+function toast(msg, type='info') {
+  const area = document.getElementById('toast-area');
+  const el   = document.createElement('div');
+  el.className = `toast ${type}`;
+  const icons = {ok:'&#10003;', err:'&#10005;', info:'i'};
+  el.innerHTML = `<span class="t-icon">${icons[type]||'i'}</span>${msg}`;
+  area.appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; setTimeout(()=>el.remove(),220); }, 3000);
+}
+
+/* ════ CONTENEDORES DINÁMICOS ════ */
+let allContainers = [];
+
+function cargarContenedores() {
+  const tbody = document.getElementById('tbl-contenedores');
+  tbody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--muted); padding: 16px;">Cargando contenedores...</td></tr>';
+  
+  fetch('/contenedores')
+    .then(response => {
+      if (!response.ok) throw new Error('Error al obtener contenedores');
+      return response.json();
+    })
+    .then(data => {
+      allContainers = data.contenedores || [];
+      document.getElementById('contenedores-count').textContent = `${allContainers.length} contenedores`;
+      renderContenedores(allContainers);
+    })
+    .catch(err => {
+      tbody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: var(--red); padding: 16px;">${err.message}</td></tr>`;
+      toast(err.message, 'err');
+    });
+}
+
+function renderContenedores(list) {
+  const tbody = document.getElementById('tbl-contenedores');
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--muted); padding: 16px;">No se encontraron contenedores</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(c => `
+    <tr class="container-row-clickable" onclick="seleccionarContenedor('${c.num_contenedor}', this)">
+      <td class="mono" style="font-weight: 600;">${c.num_contenedor}</td>
+      <td>${c.pto_descarga || '-'}</td>
+    </tr>
+  `).join('');
+}
+
+function filtrarContenedores() {
+  const query = document.getElementById('container-search').value.toLowerCase().trim();
+  const filtered = allContainers.filter(c => 
+    (c.num_contenedor && c.num_contenedor.toLowerCase().includes(query)) ||
+    (c.pto_descarga && c.pto_descarga.toLowerCase().includes(query))
+  );
+  renderContenedores(filtered);
+}
+
+function seleccionarContenedor(num_contenedor, rowEl) {
+  document.querySelectorAll('.container-row-clickable').forEach(r => r.classList.remove('selected-row'));
+  if (rowEl) rowEl.classList.add('selected-row');
+
+  document.getElementById('detail-header-empty').style.display = 'none';
+  const detailArea = document.getElementById('detail-content-area');
+  detailArea.style.display = 'block';
+  
+  document.getElementById('selected-container-title').textContent = `Contenedor: ${num_contenedor}`;
+  const tbodyPieces = document.getElementById('tbl-piezas');
+  tbodyPieces.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--muted); padding: 16px;">Cargando piezas...</td></tr>';
+  document.getElementById('selected-container-pieces-count').textContent = 'Cargando...';
+
+  fetch(`/contenedores/${num_contenedor}/piezas`)
+    .then(response => {
+      if (!response.ok) throw new Error('Error al obtener piezas del contenedor');
+      return response.json();
+    })
+    .then(data => {
+      const piezas = data.piezas || [];
+      document.getElementById('selected-container-pieces-count').textContent = `${piezas.length} piezas`;
+      
+      if (piezas.length === 0) {
+        tbodyPieces.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--muted); padding: 16px;">Este contenedor no tiene piezas.</td></tr>';
+        return;
+      }
+      
+      tbodyPieces.innerHTML = piezas.map(p => `
+        <tr>
+          <td class="mono" style="font-weight: 600;">${p.plano || '-'}</td>
+          <td>${p.desc_plano || '-'}</td>
+          <td class="mono" style="text-align: right; font-weight: bold; color: var(--blue);">${p.cantidad || 0}</td>
+        </tr>
+      `).join('');
+    })
+    .catch(err => {
+      tbodyPieces.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--red); padding: 16px;">${err.message}</td></tr>`;
+      toast(err.message, 'err');
+    });
+}
+
+/* ════ PIEZAS DINÁMICAS ════ */
+let allPiezas    = [];
+let piezasCols   = [];
+
+// Etiquetas amigables para columnas conocidas
+const PIEZAS_LABELS = {
+  'Ref':            'Ref.',
+  'Designacao':     'Designação',
+  'Designação':     'Designação',
+  'Flujo Espe':     'Flujo Esp.',
+  'Darsena':        'Dársena',
+  'MAG + BDL':      'MAG + BDL',
+  'flujo_hoy':      'Flujo Hoy',
+  'flujo_manana':   'Flujo Mañana',
+};
+
+function cargarPiezas() {
+  const thead = document.getElementById('piezas-thead');
+  const tbody = document.getElementById('piezas-tbody');
+  thead.innerHTML = '<tr><td colspan="7" style="padding:16px;color:var(--muted);text-align:center">Cargando piezas...</td></tr>';
+  tbody.innerHTML = '';
+
+  fetch('/piezas')
+    .then(r => { if (!r.ok) throw new Error('Error al obtener piezas'); return r.json(); })
+    .then(data => {
+      allPiezas  = data.piezas   || [];
+      piezasCols = data.columnas || [];
+      document.getElementById('piezas-count').textContent = `${allPiezas.length} piezas`;
+
+      if (piezasCols.length === 0) {
+        thead.innerHTML = '<tr><td colspan="7" style="padding:16px;color:var(--muted);text-align:center">Importe primero un archivo de piezas (Fuente B).</td></tr>';
+        return;
+      }
+
+      // Construir encabezados dinámicos
+      thead.innerHTML = '<tr>' + piezasCols.map(c =>
+        `<th>${PIEZAS_LABELS[c] || c}</th>`
+      ).join('') + '</tr>';
+
+      renderPiezas(allPiezas);
+    })
+    .catch(err => {
+      thead.innerHTML = `<tr><td colspan="7" style="padding:16px;color:var(--red);text-align:center">${err.message}</td></tr>`;
+      toast(err.message, 'err');
+    });
+}
+
+function renderPiezas(list) {
+  const tbody = document.getElementById('piezas-tbody');
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${piezasCols.length || 7}" style="text-align:center;color:var(--muted);padding:16px;">No se encontraron piezas.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(p => {
+    const cells = piezasCols.map((c, i) => {
+      const val = p[c] !== null && p[c] !== undefined ? p[c] : '-';
+      // Primera columna (Ref) en negrita mono; columnas de flujo en azul
+      if (i === 0) return `<td class="mono" style="font-weight:700">${val}</td>`;
+      if (c === 'flujo_hoy' || c === 'flujo_manana')
+        return `<td class="mono" style="color:var(--blue);font-weight:600;text-align:right">${val}</td>`;
+      return `<td>${val}</td>`;
+    }).join('');
+    return `<tr>${cells}</tr>`;
+  }).join('');
+}
+
+function filtrarPiezas() {
+  const q = document.getElementById('piezas-search').value.toLowerCase().trim();
+  if (!q) { renderPiezas(allPiezas); return; }
+  const filtered = allPiezas.filter(p =>
+    piezasCols.some(c => String(p[c] ?? '').toLowerCase().includes(q))
+  );
+  document.getElementById('piezas-count').textContent = `${filtered.length} de ${allPiezas.length} piezas`;
+  renderPiezas(filtered);
+}
+</script>
+</body>
+</html>
