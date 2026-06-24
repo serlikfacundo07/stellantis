@@ -2,6 +2,8 @@ import os
 import sys
 import subprocess
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # =====================================================================
 # 🛠️ VERIFICADOR E INSTALADOR AUTOMÁTICO DE DEPENDENCIAS
 # =====================================================================
@@ -107,7 +109,7 @@ def procesar():
         
         # 4. Guardar en SQLite
         # Esto crea automáticamente el archivo 'datos_inventario.db' si no existe
-        db_path = os.path.join(os.getcwd(), 'datos_inventario.db')
+        db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
         conexion = sqlite3.connect(db_path)
         
         # to_sql con if_exists='replace' elimina la tabla 'inventario' existente y crea una nueva con los datos actuales
@@ -393,7 +395,7 @@ def procesar_piezas():
         df_final = df_final[df_final['Ref'].str.lower() != 'nan']
 
         # Save to database
-        db_path = os.path.join(os.getcwd(), 'datos_inventario.db')
+        db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
         conexion = sqlite3.connect(db_path)
         df_final.to_sql('piezas', conexion, if_exists='replace', index=False)
         conexion.execute("VACUUM")
@@ -424,7 +426,7 @@ def procesar_piezas():
 @app.route('/contenedores', methods=['GET'])
 def get_contenedores():
     try:
-        db_path = os.path.join(os.getcwd(), 'datos_inventario.db')
+        db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
         if not os.path.exists(db_path):
             return jsonify({'contenedores': []})
             
@@ -443,7 +445,7 @@ def get_contenedores():
 @app.route('/contenedores/<num_contenedor>/piezas', methods=['GET'])
 def get_piezas_contenedor(num_contenedor):
     try:
-        db_path = os.path.join(os.getcwd(), 'datos_inventario.db')
+        db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
         if not os.path.exists(db_path):
             return jsonify({'piezas': []})
             
@@ -461,7 +463,7 @@ def get_piezas_contenedor(num_contenedor):
 @app.route('/piezas', methods=['GET'])
 def get_piezas():
     try:
-        db_path = os.path.join(os.getcwd(), 'datos_inventario.db')
+        db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
         if not os.path.exists(db_path):
             return jsonify({'piezas': [], 'columnas': []})
 
@@ -488,7 +490,7 @@ def get_piezas():
 @app.route('/plan_apertura', methods=['GET'])
 def plan_apertura():
     try:
-        db_path = os.path.join(os.getcwd(), 'datos_inventario.db')
+        db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
         if not os.path.exists(db_path):
             return jsonify({'plan': [], 'message': 'Base de datos no encontrada'}), 400
 
