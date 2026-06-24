@@ -485,6 +485,246 @@ def get_piezas():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/plan_apertura', methods=['GET'])
+def plan_apertura():
+    try:
+        db_path = os.path.join(os.getcwd(), 'datos_inventario.db')
+        if not os.path.exists(db_path):
+            return jsonify({'plan': [], 'message': 'Base de datos no encontrada'}), 400
+
+        conexion = sqlite3.connect(db_path)
+        cursor = conexion.cursor()
+
+        # 1. Obtener necesidades de producción (piezas): stock actual + necesidades hoy/mañana
+        cursor.execute('''
+            SELECT "Ref", "Designacao", "MAG + BDL", "flujo_hoy", "flujo_manana", "Darsena", "Flujo Espe"
+            FROM piezas
+            WHERE "Ref" IS NOT NULL AND "Ref" != '' AND "Ref" NOT LIKE 'nan%'
+        ''')
+        piezas_rows = cursor.fetchall()
+        columnas_piezas = [desc[0] for desc in cursor.description]
+        piezas = [dict(zip(columnas_piezas, row)) for row in piezas_rows]
+
+        # 2. Obtener inventario de contenedores (qué piezas hay en cada contenedor)
+        cursor.execute('''
+            SELECT "NUM_CONTENEDOR", "PTO_DESCARGA", "PLANO", "DESC_PLANO", "CANTIDAD"
+            FROM inventario
+            WHERE "NUM_CONTENEDOR" IS NOT NULL AND "NUM_CONTENEDOR" != ''
+        ''')
+        inv_rows = cursor.fetchall()
+        columnas_inv = [desc[0] for desc in cursor.description]
+        inventario = [dict(zip(columnas_inv, row)) for row in inv_rows]
+
+        conexion.close()
+
+        if not piezas:
+            return jsonify({'plan': [], 'message': 'No hay datos de piezas (Fuente B) importados'})
+
+        if not inventario:
+            return jsonify({'plan': [], 'message': 'No hay datos de contenedores (Fuente A) importados'})
+
+        # 3. Agrupar inventario por Ref (PLANO) para saber qué contenedores tienen cada pieza
+        from collections import defaultdict
+        contenedores_por_ref = defaultdict(list)
+        for item in inventario:
+            ref = str(item['PLANO']).strip()
+            if ref:
+                contenedores_por_ref[ref].append({
+                    'num_contenedor': item['NUM_CONTENEDOR'],
+                    'pto_descarga': item['PTO_DESCARGA'],
+                    'plano': item['PLANO'],
+                    'desc_plano': item['DESC_PLANO'],
+                    'cantidad': int(item['CANTIDAD']) if item['CANTIDAD'] else 0
+                })
+
+        # 4. Calcular déficit por pieza y prioridad
+        plan_items = []
+        for p in piezas:
+            ref = str(p['Ref']).strip()
+            if not ref or ref.lower() == 'nan':
+                continue
+
+            stock_actual = float(p['MAG + BDL']) if p['MAG + BDL'] is not None else 0
+            # No permitir stock negativo (dato erróneo)
+            if stock_actual < 0:
+                stock_actual = 0
+            necesidad_hoy = float(p['flujo_hoy']) if p['flujo_hoy'] is not None else 0
+            necesidad_manana = float(p['flujo_manana']) if p['flujo_manana'] is not None else 0
+            total_necesidad = necesidad_hoy + necesidad_manana
+
+            if total_necesidad <= 0:
+                continue
+
+            deficit = total_necesidad - stock_actual
+            if deficit <= 0:
+                continue  # No hay ruptura, stock suficiente
+
+            # Calcular urgencia: ratio déficit/necesidad (mayor = más crítico)
+            urgencia = deficit / total_necesidad if total_necesidad > 0 else 0
+
+            # Cobertura en horas: stock / (necesidad_total / 16h)
+            # Si stock es 0, cobertura = 0 (crítico)
+            necesidad_por_hora = total_necesidad / 16  # 2 días = 16h aprox
+            if stock_actual <= 0:
+                cobertura_horas = 0.0
+            else:
+                cobertura_horas = stock_actual / necesidad_por_hora if necesidad_por_hora > 0 else 999
+
+            # Obtener contenedores que tienen esta pieza
+            contenedores_disponibles = contenedores_por_ref.get(ref, [])
+
+            if not contenedores_disponibles:
+                # No hay contenedores para esta pieza - marcar como crítico sin solución
+                plan_items.append({
+                    'ref': ref,
+                    'designacion': p['Designacao'] or '',
+                    'stock_actual': int(stock_actual),
+                    'necesidad_hoy': int(necesidad_hoy),
+                    'necesidad_manana': int(necesidad_manana),
+                    'total_necesidad': int(total_necesidad),
+                    'deficit': int(deficit),
+                    'urgencia': urgencia,
+                    'cobertura_horas': round(cobertura_horas, 1),
+                    'darsena': p['Darsena'] or '',
+                    'flujo_espe': p['Flujo Espe'] or '',
+                    'contenedores_sugeridos': [],
+                    'sin_contenedores': True
+                })
+                continue
+
+            # Ordenar contenedores por cantidad descendente (más piezas primero)
+            contenedores_disponibles.sort(key=lambda x: x['cantidad'], reverse=True)
+
+            # Seleccionar contenedores necesarios para cubrir el déficit (máx 10 total al final)
+            cant_acumulada = 0
+            contenedores_sugeridos = []
+            for c in contenedores_disponibles:
+                if cant_acumulada >= deficit:
+                    break
+                contenedores_sugeridos.append(c)
+                cant_acumulada += c['cantidad']
+
+            plan_items.append({
+                'ref': ref,
+                'designacion': p['Designacao'] or '',
+                'stock_actual': int(stock_actual),
+                'necesidad_hoy': int(necesidad_hoy),
+                'necesidad_manana': int(necesidad_manana),
+                'total_necesidad': int(total_necesidad),
+                'deficit': int(deficit),
+                'urgencia': urgencia,
+                'cobertura_horas': round(cobertura_horas, 1),
+                'darsena': p['Darsena'] or '',
+                'flujo_espe': p['Flujo Espe'] or '',
+                'contenedores_sugeridos': contenedores_sugeridos,
+                'sin_contenedores': False
+            })
+
+        # 5. Algoritmo optimizado: selección global greedy por cobertura marginal ponderada por urgencia
+        # Construir pool global de todos los contenedores disponibles
+        pool_contenedores = []
+        for item in plan_items:
+            for c in item['contenedores_sugeridos']:
+                pool_contenedores.append({
+                    'num_contenedor': c['num_contenedor'],
+                    'pto_descarga': c['pto_descarga'],
+                    'plano': c['plano'],
+                    'desc_plano': c['desc_plano'],
+                    'cantidad': c['cantidad'],
+                    'ref': item['ref'],
+                    'designacion': item['designacion'],
+                    'stock_actual': item['stock_actual'],
+                    'necesidad_hoy': item['necesidad_hoy'],
+                    'necesidad_manana': item['necesidad_manana'],
+                    'deficit': item['deficit'],
+                    'total_necesidad': item['total_necesidad'],
+                    'cobertura_horas': item['cobertura_horas'],
+                    'darsena': item['darsena'],
+                    'flujo_espe': item['flujo_espe'],
+                    'urgencia': item['urgencia']
+                })
+
+        # Deficit restante por ref (se actualiza conforme se seleccionan contenedores)
+        deficit_por_ref = {item['ref']: item['deficit'] for item in plan_items}
+
+        # Selección greedy: en cada iteración, elegir el contenedor con mayor ganancia marginal * urgencia
+        contenedores_seleccionados = set()
+        plan_final = []
+
+        for _ in range(10):
+            mejor_contenedor = None
+            mejor_ganancia = 0
+
+            for c in pool_contenedores:
+                if c['num_contenedor'] in contenedores_seleccionados:
+                    continue
+
+                deficit_restante = deficit_por_ref.get(c['ref'], 0)
+                if deficit_restante <= 0:
+                    continue
+
+                # Ganancia marginal = min(cantidad, deficit_restante)
+                ganancia = min(c['cantidad'], deficit_restante)
+
+                # Ponderar por urgencia del parte (deficit/total_necesidad)
+                ganancia_ponderada = ganancia * c['urgencia']
+
+                if ganancia_ponderada > mejor_ganancia:
+                    mejor_ganancia = ganancia_ponderada
+                    mejor_contenedor = c
+
+            if mejor_contenedor is None or mejor_ganancia <= 0:
+                break  # No hay más contenedores que cubran deficit
+
+            # Seleccionar el mejor contenedor
+            contenedores_seleccionados.add(mejor_contenedor['num_contenedor'])
+            deficit_por_ref[mejor_contenedor['ref']] -= min(mejor_contenedor['cantidad'], deficit_por_ref[mejor_contenedor['ref']])
+
+            # Determinar estado visual
+            if mejor_contenedor['cobertura_horas'] < 2:
+                estado = 'red'
+                estado_label = 'Crítico'
+            elif mejor_contenedor['cobertura_horas'] < 5:
+                estado = 'amber'
+                estado_label = 'Atención'
+            else:
+                estado = 'green'
+                estado_label = 'OK'
+
+            linea = mejor_contenedor['darsena'].strip() if mejor_contenedor['darsena'] else mejor_contenedor['flujo_espe'] or 'N/A'
+
+            plan_final.append({
+                'prioridad': len(plan_final) + 1,
+                'num_contenedor': mejor_contenedor['num_contenedor'],
+                'pto_descarga': mejor_contenedor['pto_descarga'],
+                'ref': mejor_contenedor['ref'],
+                'designacion': mejor_contenedor['designacion'],
+                'plano': mejor_contenedor['plano'],
+                'desc_plano': mejor_contenedor['desc_plano'],
+                'cantidad_contenedor': mejor_contenedor['cantidad'],
+                'stock_actual': mejor_contenedor['stock_actual'],
+                'necesidad_hoy': mejor_contenedor['necesidad_hoy'],
+                'necesidad_manana': mejor_contenedor['necesidad_manana'],
+                'deficit': mejor_contenedor['deficit'],
+                'cobertura_horas': mejor_contenedor['cobertura_horas'],
+                'linea': linea,
+                'estado': estado,
+                'estado_label': estado_label
+            })
+
+        return jsonify({
+            'success': True,
+            'plan': plan_final,
+            'total_contenedores': len(plan_final),
+            'message': f'Plan generado con {len(plan_final)} contenedores a abrir (máx 10/día)'
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Error al generar plan de apertura: {str(e)}'}), 500
+
+
 if __name__ == '__main__':
 
     # 1. Creamos la ventana apuntando a la dirección local del puerto 7777

@@ -983,7 +983,7 @@ td.mono { font-family: var(--mono); font-size: 12px; }
       <div class="page" id="page-apertura">
         <div class="sec-hdr">
           <div class="sec-title">Plan de Apertura de Contenedores</div>
-          <div class="sec-count">8 contenedores</div>
+          <div class="sec-count">0 contenedores</div>
           <button class="help-btn" onclick="toggleHelp('help-aper',event)">?</button>
           <div class="help-popover" id="help-aper">
             <div class="help-popover-title">Plan de Apertura</div>
@@ -1001,11 +1001,11 @@ td.mono { font-family: var(--mono); font-size: 12px; }
                 <div class="help-dot green"></div>
                 <div>Prioridad <strong>8+</strong> (verde): stock suficiente, sin urgencia.</div>
               </div>
-              Use <strong>Regenerar plan</strong> para recalcular el orden según el stock actual. Use <strong>Asignar</strong> para vincular la apertura a un operario.
+              El algoritmo cruza stock de planta (Fuente A) con necesidades de producción hoy y mañana (Fuente B), y selecciona hasta 10 contenedores/día que cubran los déficits más críticos.
             </div>
           </div>
           <div class="sec-actions">
-            <button class="btn btn-ghost btn-sm">Exportar</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportPlan()">Exportar</button>
             <button class="btn btn-primary btn-sm" onclick="regenPlan()">Regenerar plan</button>
           </div>
         </div>
@@ -1013,9 +1013,10 @@ td.mono { font-family: var(--mono); font-size: 12px; }
           <table>
             <thead>
               <tr>
-                <th>Prior.</th><th>Contenedor</th><th>Pieza</th>
-                <th>Stock</th><th>Cobertura</th><th>Línea</th>
-                <th>Estado</th><th>Acción</th>
+                <th>Prior.</th><th>Contenedor</th><th>Pto. Descarga</th><th>Pieza (Ref)</th>
+                <th>Descripción</th><th>Cant. Cont.</th>
+                <th>Stock</th><th>Nec. Hoy</th><th>Nec. Mañana</th>
+                <th>Cobertura</th><th>Línea</th><th>Estado</th><th>Acción</th>
               </tr>
             </thead>
             <tbody id="tbl-apertura"></tbody>
@@ -1271,6 +1272,9 @@ function goPage(p, el) {
   if (p === 'piezas') {
     cargarPiezas();
   }
+  if (p === 'apertura') {
+    buildAper();
+  }
 }
 
 /* ════ DATOS ════ */
@@ -1335,24 +1339,53 @@ function refreshSem() {
   buildSem(); toast('Semáforo actualizado', 'ok');
 }
 
-function buildAper() {
-  const label = { red:'Crítico', amber:'Atención', green:'OK' };
-  document.getElementById('tbl-apertura').innerHTML = aperData.map(d => `
-    <tr>
-      <td><div class="prio p${d.p<=3?1:d.p<=7?2:3}">${d.p}</div></td>
-      <td class="mono">${d.id}</td>
-      <td style="font-weight:600">${d.piece}</td>
-      <td class="mono">${d.stock} u.</td>
-      <td class="mono">${d.cob}</td>
-      <td><span class="badge blue">Línea ${d.linea}</span></td>
-      <td><span class="badge ${d.st}">${label[d.st]}</span></td>
-      <td><button class="btn btn-ghost btn-sm" onclick="toast('Apertura asignada: ${d.id}','ok')">Asignar</button></td>
-    </tr>`).join('');
+let currentPlan = [];
+
+async function buildAper() {
+  const tbody = document.getElementById('tbl-apertura');
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--muted); padding: 16px;">Cargando plan de apertura...</td></tr>';
+  
+  try {
+    const response = await fetch('/plan_apertura');
+    if (!response.ok) throw new Error('Error al obtener plan');
+    const data = await response.json();
+    
+    if (!data.success) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--amber); padding: 16px;">${data.message || 'No se pudo generar el plan'}</td></tr>`;
+      document.querySelector('#page-apertura .sec-count').textContent = '0 contenedores';
+      return;
+    }
+    
+    currentPlan = data.plan || [];
+    document.querySelector('#page-apertura .sec-count').textContent = `${currentPlan.length} contenedores`;
+    
+    if (currentPlan.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--muted); padding: 16px;">No hay contenedores para abrir. Stock suficiente para producción.</td></tr>';
+      return;
+    }
+    
+    const label = { red:'Crítico', amber:'Atención', green:'OK' };
+    tbody.innerHTML = currentPlan.map(d => `
+      <tr>
+        <td><div class="prio p${d.prioridad<=3?1:d.prioridad<=7?2:3}">${d.prioridad}</div></td>
+        <td class="mono">${d.num_contenedor}</td>
+        <td style="font-weight:600">${d.designacion || d.ref}</td>
+        <td class="mono">${d.stock_actual} u.</td>
+        <td class="mono">${d.cobertura_horas} hs</td>
+        <td><span class="badge blue">${d.linea}</span></td>
+        <td><span class="badge ${d.estado}">${d.estado_label}</span></td>
+        <td><button class="btn btn-ghost btn-sm" onclick="toast('Apertura asignada: ${d.num_contenedor}','ok')">Asignar</button></td>
+      </tr>`).join('');
+      
+  } catch (error) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--red); padding: 16px;">Error: ${error.message}</td></tr>`;
+    toast('Error al cargar plan: ' + error.message, 'err');
+  }
 }
-function regenPlan() {
-  aperData.sort(() => Math.random() - .5);
-  aperData.forEach((d, i) => d.p = i + 1);
-  buildAper(); toast('Plan regenerado automáticamente', 'ok');
+
+async function regenPlan() {
+  await buildAper();
+  toast('Plan regenerado desde datos reales', 'ok');
 }
 
 function buildOpenings() {
