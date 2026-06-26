@@ -513,7 +513,7 @@ td.mono { font-family: var(--mono); font-size: 12px; }
           <div class="sec-count" id="apertura-count">8 contenedores</div>
           <div class="sec-actions">
             <button class="btn btn-ghost btn-sm" onclick="openAddModal()">+ Agregar contenedor</button>
-            <button class="btn btn-ghost btn-sm">Exportar</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportPlanPDF()">Exportar</button>
             <button class="btn btn-primary btn-sm" onclick="regenPlan()">Regenerar plan</button>
           </div>
         </div>
@@ -995,9 +995,44 @@ async function importAllData(file) {
 }
 
 function refreshCurrentView() {
-  // En index2.html, renderAll() recarga todo
   if (typeof renderAll === 'function') {
     renderAll();
+  }
+}
+
+async function exportPlanPDF() {
+  try {
+    showToast('Generando PDF...', 'info');
+    const resp = await fetch('/exportar_plan_pdf', { method: 'POST' });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: 'Error del servidor' }));
+      showToast(err.error || 'Error generando PDF', 'err');
+      return;
+    }
+    const blob = await resp.blob();
+    const fileName = 'plan_apertura_' + new Date().toLocaleDateString('es-ES').replace(/\//g, '-') + '.pdf';
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.save_pdf) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result.split(',')[1];
+        const result = await window.pywebview.api.save_pdf(base64, fileName);
+        if (result.success) {
+          showToast('PDF guardado en: ' + result.path, 'ok');
+        } else {
+          showToast(result.error || 'No se guardo el archivo', 'err');
+        }
+      };
+      reader.readAsDataURL(blob);
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('PDF descargado: ' + fileName, 'ok');
+    }
+  } catch (e) {
+    showToast('Error generando PDF: ' + e.message, 'err');
   }
 }
 </script>

@@ -16,7 +16,8 @@ def verificar_e_instalar_dependencias():
         "flask": "Flask",
         "pandas": "pandas",
         "openpyxl": "openpyxl",
-        "xlrd": "xlrd"
+        "xlrd": "xlrd",
+        "reportlab": "reportlab"
     }
     
     faltantes = []
@@ -45,7 +46,11 @@ verificar_e_instalar_dependencias()
 # =====================================================================
 import webview
 import threading
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_file
+from io import BytesIO
+from reportlab.pdfgen import canvas as pdf_canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
 
 app = Flask(__name__, static_folder='frontend', template_folder='frontend')
 
@@ -826,6 +831,272 @@ def importar_datos():
         return jsonify({'error': f'Error al importar datos: {str(e)}'}), 500
 
 
+# =====================================================================
+# 📄 GENERACIÓN DE PDF - PLAN DE APERTURA
+# =====================================================================
+COLS = ['ORDEN', 'CONTENEDOR', 'HORA', 'ABIERTO']
+COL_X = [15*mm, 37*mm, 152*mm, 177*mm]
+COL_W = [22*mm, 115*mm, 25*mm, 18*mm]
+TOTAL_W = sum(COL_W)
+ROW_H = 16*mm
+HEADER_H = 12*mm
+
+
+def generar_pdf_plan(datos):
+    buf = BytesIO()
+    c = pdf_canvas.Canvas(buf, pagesize=A4)
+    now = datetime.now()
+
+    c.setFont('Helvetica', 8)
+    c.setFillColorRGB(0.15, 0.15, 0.15)
+    c.drawRightString(COL_X[0] + TOTAL_W, 288*mm, f'Fecha: {now.strftime("%d/%m/%Y")}')
+
+    H_TOP = 280*mm
+    H_BOT = 268*mm
+    c.setFillColorRGB(0.82, 0.82, 0.82)
+    c.rect(COL_X[0], H_BOT, TOTAL_W, H_TOP - H_BOT, fill=1, stroke=0)
+    c.setStrokeColorRGB(0.25, 0.25, 0.25)
+    c.setLineWidth(0.35)
+    c.rect(COL_X[0], H_BOT, TOTAL_W, H_TOP - H_BOT, fill=0, stroke=1)
+    c.setFont('Helvetica-Bold', 9)
+    c.setFillColorRGB(0, 0, 0)
+    for i, lbl in enumerate(COLS):
+        c.drawCentredString(COL_X[i] + COL_W[i] / 2, 274*mm, lbl)
+
+    n = len(datos)
+    for fi in range(n):
+        item = datos[fi]
+        yt = H_BOT - fi * ROW_H
+        yb = yt - ROW_H
+        y_text = yb + ROW_H / 2 - 1.5
+
+        if fi % 2 == 0:
+            c.setFillColorRGB(0.95, 0.95, 0.95)
+            c.rect(COL_X[0], yb, TOTAL_W, yt - yb, fill=1, stroke=0)
+        c.setStrokeColorRGB(0.25, 0.25, 0.25)
+        c.setLineWidth(0.3)
+        c.rect(COL_X[0], yb, TOTAL_W, yt - yb, fill=0, stroke=1)
+
+        c.setFillColorRGB(0, 0, 0)
+        c.setFont('Helvetica-Bold', 9)
+        c.drawCentredString(COL_X[0] + COL_W[0] / 2, y_text, str(fi + 1))
+
+        c.setFont('Helvetica-Bold', 9)
+        txt = item.get('num_contenedor', '')
+        c.drawString(COL_X[1] + 2, y_text, txt)
+        ref = item.get('designacion') or item.get('ref', '') or ''
+        if ref:
+            c.setFont('Helvetica', 7)
+            c.setFillColorRGB(0.4, 0.4, 0.4)
+            rx = COL_X[1] + 2 + c.stringWidth(txt, 'Helvetica-Bold', 9) + 2
+            c.drawString(rx, y_text, f'({ref})')
+            c.setFillColorRGB(0, 0, 0)
+
+        c.setStrokeColorRGB(0.3, 0.3, 0.3)
+        c.setLineWidth(0.3)
+        hc = COL_X[2] + COL_W[2] / 2
+        hy = y_text + 1
+        c.line(hc - 9, hy, hc - 2, hy)
+        c.line(hc + 2, hy, hc + 9, hy)
+
+        c.setStrokeColorRGB(0.2, 0.2, 0.2)
+        c.setLineWidth(0.4)
+        cbx = COL_X[3] + COL_W[3] / 2 - 2
+        c.rect(cbx, y_text - 3, 4, 4)
+
+    y_obs = H_BOT - n * ROW_H - 40
+    c.setFont('Helvetica-Bold', 10)
+    c.setFillColorRGB(0, 0, 0)
+    c.drawString(COL_X[0], y_obs, 'OBSERVACIONES / INCIDENCIAS:')
+    c.setFont('Helvetica', 8)
+    c.setFillColorRGB(0.3, 0.3, 0.3)
+    for i in range(3):
+        c.drawString(COL_X[0], y_obs - (i + 1) * 8,
+                     '__________________________________________________________________________')
+
+    y_firma = 12*mm
+    c.setFont('Helvetica', 8)
+    c.setFillColorRGB(0, 0, 0)
+    c.drawString(COL_X[0], y_firma, 'Firma Supervisor / Control:')
+    c.line(COL_X[0], y_firma - 3, COL_X[0] + 80*mm, y_firma - 3)
+
+    c.save()
+    buf.seek(0)
+    return buf.getvalue()
+
+
+@app.route('/exportar_plan_pdf', methods=['POST'])
+def exportar_plan_pdf():
+    try:
+        datos = plan_apertura_json()
+        if isinstance(datos, tuple):
+            return datos
+        pdf = generar_pdf_plan(datos)
+        return send_file(
+            BytesIO(pdf),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f'plan_apertura_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def plan_apertura_json():
+    from flask import Response as FlaskResponse
+    import traceback
+    try:
+        db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
+        if not os.path.exists(db_path):
+            return FlaskResponse(json.dumps({'plan': [], 'message': 'Base de datos no encontrada'}), 400)
+        conexion = sqlite3.connect(db_path)
+        cursor = conexion.cursor()
+        cursor.execute('''
+            SELECT "Ref", "Designacao", "MAG + BDL", "flujo_hoy", "flujo_manana", "Darsena", "Flujo Espe"
+            FROM piezas WHERE "Ref" IS NOT NULL AND "Ref" != '' AND "Ref" NOT LIKE 'nan%'
+        ''')
+        piezas_rows = cursor.fetchall()
+        col_p = [desc[0] for desc in cursor.description]
+        piezas = [dict(zip(col_p, r)) for r in piezas_rows]
+        cursor.execute('''
+            SELECT "NUM_CONTENEDOR", "PTO_DESCARGA", "PLANO", "DESC_PLANO", "CANTIDAD"
+            FROM inventario WHERE "NUM_CONTENEDOR" IS NOT NULL AND "NUM_CONTENEDOR" != ''
+        ''')
+        inv_rows = cursor.fetchall()
+        col_i = [desc[0] for desc in cursor.description]
+        inventario = [dict(zip(col_i, r)) for r in inv_rows]
+        conexion.close()
+        if not piezas:
+            return []
+        if not inventario:
+            return []
+        from collections import defaultdict
+        cont_por_ref = defaultdict(list)
+        for item in inventario:
+            ref = str(item['PLANO']).strip()
+            if ref:
+                cont_por_ref[ref].append({
+                    'num_contenedor': item['NUM_CONTENEDOR'],
+                    'pto_descarga': item['PTO_DESCARGA'],
+                    'plano': item['PLANO'],
+                    'desc_plano': item['DESC_PLANO'],
+                    'cantidad': int(item['CANTIDAD']) if item['CANTIDAD'] else 0
+                })
+        items = []
+        for p in piezas:
+            ref = str(p['Ref']).strip()
+            if not ref or ref.lower() == 'nan':
+                continue
+            stock = float(p['MAG + BDL']) if p['MAG + BDL'] is not None else 0
+            if stock < 0:
+                stock = 0
+            hoy = float(p['flujo_hoy']) if p['flujo_hoy'] is not None else 0
+            manana = float(p['flujo_manana']) if p['flujo_manana'] is not None else 0
+            total = hoy + manana
+            if total <= 0:
+                continue
+            deficit = total - stock
+            if deficit <= 0:
+                continue
+            urgencia = deficit / total if total > 0 else 0
+            necesidad_por_hora = total / 16
+            cobertura = stock / necesidad_por_hora if necesidad_por_hora > 0 else 999
+            disponibles = cont_por_ref.get(ref, [])
+            if not disponibles:
+                items.append({
+                    'ref': ref, 'designacion': p['Designacao'] or '',
+                    'stock_actual': int(stock), 'necesidad_hoy': int(hoy),
+                    'necesidad_manana': int(manana), 'total_necesidad': int(total),
+                    'deficit': int(deficit), 'urgencia': urgencia,
+                    'cobertura_horas': round(cobertura, 1),
+                    'darsena': p['Darsena'] or '', 'flujo_espe': p['Flujo Espe'] or '',
+                    'contenedores_sugeridos': [], 'sin_contenedores': True
+                })
+                continue
+            disponibles.sort(key=lambda x: x['cantidad'], reverse=True)
+            acum = 0
+            sugeridos = []
+            for c in disponibles:
+                if acum >= deficit:
+                    break
+                sugeridos.append(c)
+                acum += c['cantidad']
+            items.append({
+                'ref': ref, 'designacion': p['Designacao'] or '',
+                'stock_actual': int(stock), 'necesidad_hoy': int(hoy),
+                'necesidad_manana': int(manana), 'total_necesidad': int(total),
+                'deficit': int(deficit), 'urgencia': urgencia,
+                'cobertura_horas': round(cobertura, 1),
+                'darsena': p['Darsena'] or '', 'flujo_espe': p['Flujo Espe'] or '',
+                'contenedores_sugeridos': sugeridos, 'sin_contenedores': False
+            })
+        pool = []
+        for item in items:
+            for c in item['contenedores_sugeridos']:
+                pool.append({
+                    'num_contenedor': c['num_contenedor'],
+                    'pto_descarga': c['pto_descarga'], 'plano': c['plano'],
+                    'desc_plano': c['desc_plano'], 'cantidad': c['cantidad'],
+                    'ref': item['ref'], 'designacion': item['designacion'],
+                    'stock_actual': item['stock_actual'],
+                    'necesidad_hoy': item['necesidad_hoy'],
+                    'necesidad_manana': item['necesidad_manana'],
+                    'deficit': item['deficit'], 'total_necesidad': item['total_necesidad'],
+                    'cobertura_horas': item['cobertura_horas'],
+                    'darsena': item['darsena'], 'flujo_espe': item['flujo_espe'],
+                    'urgencia': item['urgencia']
+                })
+        deficit_por_ref = {item['ref']: item['deficit'] for item in items}
+        seleccionados = set()
+        final = []
+        for _ in range(10):
+            mejor = None
+            mejor_ganancia = 0
+            for c in pool:
+                if c['num_contenedor'] in seleccionados:
+                    continue
+                dr = deficit_por_ref.get(c['ref'], 0)
+                if dr <= 0:
+                    continue
+                ganancia = min(c['cantidad'], dr) * c['urgencia']
+                if ganancia > mejor_ganancia:
+                    mejor_ganancia = ganancia
+                    mejor = c
+            if mejor is None or mejor_ganancia <= 0:
+                break
+            seleccionados.add(mejor['num_contenedor'])
+            deficit_por_ref[mejor['ref']] -= min(mejor['cantidad'], deficit_por_ref[mejor['ref']])
+            if mejor['cobertura_horas'] < 2:
+                estado, label = 'red', 'Critico'
+            elif mejor['cobertura_horas'] < 5:
+                estado, label = 'amber', 'Atencion'
+            else:
+                estado, label = 'green', 'OK'
+            linea = (mejor['darsena'] or mejor['flujo_espe'] or 'N/A').strip()
+            final.append({
+                'prioridad': len(final) + 1,
+                'num_contenedor': mejor['num_contenedor'],
+                'pto_descarga': mejor['pto_descarga'],
+                'ref': mejor['ref'],
+                'designacion': mejor['designacion'],
+                'plano': mejor['plano'],
+                'desc_plano': mejor['desc_plano'],
+                'cantidad_contenedor': mejor['cantidad'],
+                'stock_actual': mejor['stock_actual'],
+                'necesidad_hoy': mejor['necesidad_hoy'],
+                'necesidad_manana': mejor['necesidad_manana'],
+                'deficit': mejor['deficit'],
+                'cobertura_horas': mejor['cobertura_horas'],
+                'linea': linea,
+                'estado': estado,
+                'estado_label': label
+            })
+        return final
+    except Exception:
+        traceback.print_exc()
+        return []
+
+
 class Api:
     def save_json(self, json_str, suggested_name):
         import webview
@@ -843,7 +1114,27 @@ class Api:
                 return {'success': True, 'path': file_path}
             except Exception as e:
                 return {'success': False, 'error': str(e)}
-        return {'success': False, 'error': 'Usuario canceló'}
+        return {'success': False, 'error': 'Usuario cancelo'}
+
+    def save_pdf(self, pdf_base64, suggested_name):
+        import webview
+        import base64
+        result = webview.windows[0].create_file_dialog(
+            webview.FileDialog.SAVE,
+            directory='',
+            save_filename=suggested_name,
+            file_types=('Archivos PDF (*.pdf)', 'Todos los archivos (*.*)')
+        )
+        if result:
+            file_path = result[0] if isinstance(result, tuple) else result
+            try:
+                pdf_bytes = base64.b64decode(pdf_base64)
+                with open(file_path, 'wb') as f:
+                    f.write(pdf_bytes)
+                return {'success': True, 'path': file_path}
+            except Exception as e:
+                return {'success': False, 'error': str(e)}
+        return {'success': False, 'error': 'Usuario cancelo'}
 
 
 if __name__ == '__main__':
