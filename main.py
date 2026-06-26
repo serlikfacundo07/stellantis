@@ -1,6 +1,8 @@
 import os
 import sys
 import subprocess
+import json
+from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -727,10 +729,133 @@ def plan_apertura():
         return jsonify({'error': f'Error al generar plan de apertura: {str(e)}'}), 500
 
 
+@app.route('/exportar_datos', methods=['GET'])
+def exportar_datos():
+    try:
+        db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
+        if not os.path.exists(db_path):
+            data = {
+                'version': '1.0',
+                'exportado': datetime.now().isoformat(),
+                'inventario': [],
+                'piezas': [],
+                'metadata': {'registros_inventario': 0, 'registros_piezas': 0}
+            }
+        else:
+            conexion = sqlite3.connect(db_path)
+            cursor = conexion.cursor()
+
+            cursor.execute('SELECT * FROM inventario')
+            inv_rows = cursor.fetchall()
+            inv_cols = [desc[0] for desc in cursor.description]
+            inventario = [dict(zip(inv_cols, row)) for row in inv_rows]
+
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='piezas'")
+            piezas = []
+            if cursor.fetchone():
+                cursor.execute('SELECT * FROM piezas')
+                pz_rows = cursor.fetchall()
+                pz_cols = [desc[0] for desc in cursor.description]
+                piezas = [dict(zip(pz_cols, row)) for row in pz_rows]
+
+            conexion.close()
+
+            data = {
+                'version': '1.0',
+                'exportado': datetime.now().isoformat(),
+                'inventario': inventario,
+                'piezas': piezas,
+                'metadata': {
+                    'registros_inventario': len(inventario),
+                    'registros_piezas': len(piezas)
+                }
+            }
+
+        return jsonify(data)
+
+    except Exception as e:
+        return jsonify({'error': f'Error al exportar datos: {str(e)}'}), 500
+
+
+@app.route('/importar_datos', methods=['POST'])
+def importar_datos():
+    try:
+        if 'archivo' not in request.files:
+            return jsonify({'error': 'No se recibió ningún archivo'}), 400
+
+        file = request.files['archivo']
+        if file.filename == '':
+            return jsonify({'error': 'Nombre de archivo vacío'}), 400
+
+        data = json.load(file.stream)
+
+        if 'inventario' not in data or 'piezas' not in data:
+            return jsonify({'error': 'JSON inválido: faltan arrays "inventario" o "piezas"'}), 400
+
+        db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
+        conexion = sqlite3.connect(db_path)
+
+        df_inv = pd.DataFrame(data['inventario'])
+        if not df_inv.empty:
+            df_inv.to_sql('inventario', conexion, if_exists='replace', index=False)
+        else:
+            cursor = conexion.cursor()
+            cursor.execute('DELETE FROM inventario')
+
+        df_pz = pd.DataFrame(data['piezas'])
+        if not df_pz.empty:
+            df_pz.to_sql('piezas', conexion, if_exists='replace', index=False)
+        else:
+            cursor = conexion.cursor()
+            cursor.execute('DELETE FROM piezas')
+
+        conexion.commit()
+        conexion.execute('VACUUM')
+        conexion.close()
+
+        return jsonify({
+            'success': True,
+            'registros_inventario': len(data['inventario']),
+            'registros_piezas': len(data['piezas']),
+            'mensaje': f'Importados {len(data["inventario"])} contenedores y {len(data["piezas"])} piezas'
+        })
+
+    except json.JSONDecodeError:
+        return jsonify({'error': 'El archivo no es un JSON válido'}), 400
+    except Exception as e:
+        return jsonify({'error': f'Error al importar datos: {str(e)}'}), 500
+
+
+class Api:
+    def save_json(self, json_str, suggested_name):
+        import webview
+        result = webview.windows[0].create_file_dialog(
+            webview.FileDialog.SAVE,
+            directory='',
+            save_filename=suggested_name,
+            file_types=('Archivos JSON (*.json)', 'Todos los archivos (*.*)')
+        )
+        if result:
+            file_path = result[0] if isinstance(result, tuple) else result
+            try:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(json_str)
+                return {'success': True, 'path': file_path}
+            except Exception as e:
+                return {'success': False, 'error': str(e)}
+        return {'success': False, 'error': 'Usuario canceló'}
+
+
 if __name__ == '__main__':
 
     # 1. Creamos la ventana apuntando a la dirección local del puerto 7777
-    window = webview.create_window('Mi Aplicación Ejecutable', 'http://127.0.0.1:7777', fullscreen=True)
+    api = Api()
+    window = webview.create_window(
+        'Mi Aplicación Ejecutable', 
+        'http://127.0.0.1:7777', 
+        fullscreen=True,
+        js_api=api
+    )
     
     # 2. Corremos Flask en un hilo separado para que no bloquee la ventana de la app
     threading.Thread(target=lambda: app.run(port=7777, debug=False, use_reloader=False), daemon=True).start()

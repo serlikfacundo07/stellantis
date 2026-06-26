@@ -461,6 +461,25 @@ td.mono { font-family: var(--mono); font-size: 12px; }
           <div class="kpi green"><div class="kpi-label">Stock normal</div><div class="kpi-val c-green">12</div><div class="kpi-sub">Sin acción requerida</div></div>
         </div>
 
+        <div class="sec-hdr" style="margin-bottom: 14px;">
+          <div class="sec-title">Acciones</div>
+          <div class="sec-actions">
+            <button class="btn btn-primary btn-sm" onclick="exportAllData()" title="Exportar todos los datos (JSON)">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-right: 5px;">
+                <path d="M7 11V3M3 7h8M3 7l4-4 4 4"/>
+              </svg>
+              Exportar Dashboard
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-file-input').click()" title="Importar datos desde JSON">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-right: 5px;">
+                <path d="M7 3v8M3 7h8M3 7l4-4 4 4"/>
+              </svg>
+              Importar
+            </button>
+            <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="importAllData(this.files[0])">
+          </div>
+        </div>
+
         <div class="sec-hdr">
           <div class="sec-title">Semáforo de Priorización</div>
           <div class="sec-count" id="sem-count">0 piezas</div>
@@ -894,6 +913,92 @@ function syncBoth() {
   if(selectedFiles.a) runImport('a');
   if(selectedFiles.b) runImport('b');
   if(!selectedFiles.a && !selectedFiles.b) showToast('Seleccione archivos para ambas fuentes primero', 'err');
+}
+
+/* ════ EXPORTAR / IMPORTAR ════ */
+
+async function exportAllData() {
+  try {
+    showToast('Generando archivo de exportación...', 'info');
+    const resp = await fetch('/exportar_datos');
+    if (!resp.ok) throw new Error('Error al exportar');
+    const data = await resp.json();
+    
+    const jsonStr = JSON.stringify(data, null, 2);
+    const now = new Date();
+    const stamp = now.toISOString().slice(0,19).replace(/[-:]/g,'').replace('T','-');
+    const suggestedName = `stellantis-backup-${stamp}.json`;
+    
+    // Usar API nativa de pywebview para diálogo "Guardar como"
+    if (window.pywebview && window.pywebview.api) {
+      const result = await window.pywebview.api.save_json(jsonStr, suggestedName);
+      if (result.success) {
+        showToast(`Exportado a: ${result.path}`, 'ok');
+      } else {
+        showToast('Exportación cancelada o error: ' + (result.error || ''), 'err');
+      }
+    } else {
+      // Fallback para navegador normal
+      const blob = new Blob([jsonStr], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = suggestedName;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`Exportado: ${data.metadata.registros_inventario} contenedores, ${data.metadata.registros_piezas} piezas`, 'ok');
+    }
+  } catch (e) {
+    showToast('Error al exportar: ' + e.message, 'err');
+  }
+}
+
+async function importAllData(file) {
+  if (!file) return;
+  if (!file.name.endsWith('.json')) {
+    showToast('El archivo debe ser .json', 'err');
+    document.getElementById('import-file-input').value = '';
+    return;
+  }
+  
+  try {
+    showToast('Leyendo archivo...', 'info');
+    const text = await file.text();
+    const data = JSON.parse(text);
+    
+    // Validación básica estructura
+    if (!data.inventario || !data.piezas) {
+      throw new Error('JSON inválido: faltan arrays "inventario" o "piezas"');
+    }
+    
+    showToast('Importando datos al servidor...', 'info');
+    const formData = new FormData();
+    formData.append('archivo', file);
+    
+    const resp = await fetch('/importar_datos', {method: 'POST', body: formData});
+    const result = await resp.json();
+    if (!resp.ok) throw new Error(result.error || 'Error en importación');
+    
+    showToast(`Importado OK: ${result.registros_inventario} contenedores, ${result.registros_piezas} piezas`, 'ok');
+    
+    // Refrescar vista actual
+    refreshCurrentView();
+    
+  } catch (e) {
+    showToast('Error al importar: ' + e.message, 'err');
+  } finally {
+    document.getElementById('import-file-input').value = ''; // reset para permitir re-importar mismo archivo
+  }
+}
+
+function refreshCurrentView() {
+  // En index2.html, renderAll() recarga todo
+  if (typeof renderAll === 'function') {
+    renderAll();
+  }
 }
 </script>
 </body>
