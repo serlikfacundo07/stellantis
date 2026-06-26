@@ -928,9 +928,15 @@ def generar_pdf_plan(datos):
 @app.route('/exportar_plan_pdf', methods=['POST'])
 def exportar_plan_pdf():
     try:
-        datos = plan_apertura_json()
-        if isinstance(datos, tuple):
+        payload = request.get_json(silent=True) if request.is_json else None
+        if isinstance(payload, dict) and isinstance(payload.get('plan'), list):
+            datos = payload['plan']
+        else:
+            datos = plan_apertura_json()
+
+        if not isinstance(datos, list):
             return datos
+
         pdf = generar_pdf_plan(datos)
         return send_file(
             BytesIO(pdf),
@@ -1144,7 +1150,11 @@ if __name__ == '__main__':
     window = webview.create_window(
         'Mi Aplicación Ejecutable', 
         'http://127.0.0.1:7777', 
-        fullscreen=True,
+        width=1280,
+        height=820,
+        min_size=(980, 640),
+        resizable=True,
+        fullscreen=False,
         js_api=api
     )
     
