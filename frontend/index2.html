@@ -416,7 +416,6 @@ tr.drag-over { background: var(--blue-lt); }
       <div class="nav-item" onclick="goPage('cambios',this)">
         <span class="nav-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3h8M3 7h8M3 11h8"/><path d="M1.5 3h.01M1.5 7h.01M1.5 11h.01"/></svg></span>
         <span>Cambios</span>
-        <span class="nav-badge" id="changes-badge">0</span>
       </div>
     </div>
 
@@ -668,29 +667,53 @@ function formatTime(value) {
   return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 }
 
-function doLogin() {
+async function doLogin() {
   let u = byId('login-user').value;
   let p = byId('login-pass').value;
   let valid = true;
   if(!u) { byId('login-user').classList.add('invalid'); byId('err-user').classList.add('show'); valid = false; }
   if(!p) { byId('login-pass').classList.add('invalid'); byId('err-pass').classList.add('show'); valid = false; }
-  if(valid) {
-    if(u.toLowerCase() === 'offline' || u.toLowerCase() === 'db_error') {
-      showToast('Error de enlazamiento con la base de datos local. Intentelo nuevamente.', 'err');
+  if(!valid) return;
+
+  try {
+    const resp = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usuario: u, password: p })
+    });
+    const data = await resp.json();
+
+    if(!data.success) {
+      showToast(data.error || 'Error de autenticación', 'err');
       return;
     }
+
+    // Guardar sesión
+    localStorage.setItem('session_usuario', data.usuario);
+    localStorage.setItem('session_nombre', data.nombre);
+    localStorage.setItem('session_rol', data.rol);
+
     byId('login-screen').classList.remove('active');
     byId('app-screen').classList.add('active');
-    let initials = u.split('.').map(n => n.charAt(0).toUpperCase()).join('').substring(0,2);
-    byId('sb-av').innerText = initials || 'MB';
-    byId('sb-name').innerText = u.replace('.', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'M. Bisso';
+
+    let nombre = data.nombre;
+    let parts = nombre.split(' ');
+    let initials = parts.map(n => n.charAt(0).toUpperCase()).join('').substring(0,2) || data.usuario.substring(0,2).toUpperCase();
+    byId('sb-av').innerText = initials;
+    byId('sb-name').innerText = nombre;
+
     renderAll();
     startClock();
-    showToast('Bienvenido al sistema', 'ok');
+    showToast('Bienvenido, ' + nombre, 'ok');
+  } catch(err) {
+    showToast('Error de conexión con el servidor', 'err');
   }
 }
 
 function doLogout() {
+  localStorage.removeItem('session_usuario');
+  localStorage.removeItem('session_nombre');
+  localStorage.removeItem('session_rol');
   byId('app-screen').classList.remove('active');
   byId('login-screen').classList.add('active');
   byId('login-user').value = '';
@@ -718,11 +741,23 @@ function goPage(page, el) {
   if(page === 'cambios') renderChanges();
 }
 
+async function loadHistorial() {
+  try {
+    const resp = await fetch('/api/historial');
+    const data = await resp.json();
+    openedContainers = Array.isArray(data.aperturas) ? data.aperturas : [];
+    changes = Array.isArray(data.cambios) ? data.cambios : [];
+    renderOpenings();
+    renderChanges();
+  } catch(e) {
+    console.error('Error cargando historial:', e);
+  }
+}
+
 function renderAll() {
+  loadHistorial();
   loadPlan(true, false);
   renderPiezas();
-  renderOpenings();
-  renderChanges();
 }
 
 async function loadPlan(force, notify) {
@@ -832,7 +867,7 @@ function renderOpenings() {
   `).join('');
 }
 
-function restoreOpening(openedIndex) {
+async function restoreOpening(openedIndex) {
   const restored = openedContainers[openedIndex];
   if(!restored) return;
 
@@ -844,6 +879,7 @@ function restoreOpening(openedIndex) {
     restored.num_contenedor
   );
   renderPlanViews();
+  await persistAperturas();
   showToast('Contenedor devuelto al orden de apertura.', 'info');
 }
 
@@ -950,6 +986,7 @@ function recordChange(type, title, description, containerId, payload) {
   });
   renderChanges();
   updateChangeIndicators();
+  persistCambios();
 }
 
 function recordChangeApplied(type, title, description, containerId, payload) {
@@ -967,9 +1004,10 @@ function recordChangeApplied(type, title, description, containerId, payload) {
   });
   renderChanges();
   updateChangeIndicators();
+  persistCambios();
 }
 
-function applyChanges() {
+async function applyChanges() {
   const pending = changes.filter(c => c.status === 'pending');
   if(pending.length === 0) {
     showToast('No hay cambios pendientes para aplicar.', 'info');
@@ -995,6 +1033,38 @@ function applyChanges() {
   renderPlanViews();
   renderChanges();
   showToast(`${pending.length} cambio${pending.length === 1 ? '' : 's'} aplicado${pending.length === 1 ? '' : 's'}.`, 'ok');
+
+  // Persist to database
+  await persistAperturas();
+  await persistCambios();
+}
+
+function getSessionUser() {
+  return localStorage.getItem('session_usuario') || '';
+}
+
+async function persistAperturas() {
+  try {
+    await fetch('/guardar_aperturas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ aperturas: openedContainers, usuario: getSessionUser() })
+    });
+  } catch(e) {
+    console.error('Error guardando aperturas:', e);
+  }
+}
+
+async function persistCambios() {
+  try {
+    await fetch('/guardar_cambios', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cambios: changes, usuario: getSessionUser() })
+    });
+  } catch(e) {
+    console.error('Error guardando cambios:', e);
+  }
 }
 
 function renderChanges() {
@@ -1028,7 +1098,6 @@ function renderChanges() {
 
 function updateChangeIndicators() {
   const pendingCount = changes.filter(c => c.status === 'pending').length;
-  if(byId('changes-badge')) byId('changes-badge').innerText = pendingCount;
   if(byId('kpi-pending')) byId('kpi-pending').innerText = pendingCount;
   if(byId('changes-count')) byId('changes-count').innerText = pendingCount + ' pendientes';
 }
