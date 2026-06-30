@@ -11,23 +11,23 @@
    TOKENS — modo claro (Stellantis)
 ════════════════════════════════ */
 :root {
-  --bg:       #F5F7FA;
+  --bg:       #F0F2F5;
   --surface:  #FFFFFF; 
-  --border:   #D1D1D1; 
-  --border2:  #B0B6C0;
-  --text:     #1A1A2E; 
+  --border:   #DDE1E6; 
+  --border2:  #C1C7CD;
+  --text:     #161616; 
   --sub:      #2C2C2C; 
   --muted:    #5A6A7A;
   --faint:    #8A9AAA;
 
-  --blue:     #003DA5; 
-  --blue-lt:  #EFF4FF;
-  --blue-bd:  #C7D9FF;
-  --blue-dk:  #002A75;
+  --blue:     #003F72; 
+  --blue-lt:  #E8EDF3;
+  --blue-bd:  #B8C9E0;
+  --blue-dk:  #002855;
 
-  --red:      #dc2626;
-  --red-lt:   #fff1f1;
-  --red-bd:   #fecaca;
+  --red:      #E30613;
+  --red-lt:   #FDE8E9;
+  --red-bd:   #F5B7BB;
 
   --amber:    #d97706;
   --amb-lt:   #fffbeb;
@@ -37,36 +37,31 @@
   --grn-lt:   #f0fdf4;
   --grn-bd:   #bbf7d0;
 
-  --shadow:   0 2px 10px rgba(11, 31, 58, .07);
-  --shadow-md:0 4px 18px rgba(11, 31, 58, .10);
+  --shadow:   0 2px 10px rgba(0, 30, 60, .07);
+  --shadow-md:0 4px 18px rgba(0, 30, 60, .10);
   --r:        6px;
   --font:     'Inter', sans-serif;
   --mono:     'JetBrains Mono', monospace;
   --ease:     cubic-bezier(.22,.68,0,1.2);
-  
-  --logo-url: url('https://z-cdn-media.chatglm.cn/files/2fbaf808-d2b7-4dca-b608-4e5ddb281c89.png?auth_key=1882338366-11ccca44609f4744b30f66ee1b9f8522-0-25565094c1a35ff56e68c49c487a7a39');
 }
 
-/* ════════════════════════════════
-   TOKENS — modo oscuro
-════════════════════════════════ */
 html.dark {
-  --bg:       #0F1B30; 
-  --surface:  #1A2538; 
-  --border:   #2C2C2C; 
+  --bg:       #0A1628; 
+  --surface:  #121E32; 
+  --border:   #2A3548; 
   --border2:  #3D4D6B;
-  --text:     #E8EDF8; 
+  --text:     #E8EDF4; 
   --sub:      #D1D1D1; 
   --muted:    #8B9BB4;
   --faint:    #5A6B88;
 
-  --blue:     #0057D2; 
-  --blue-lt:  rgba(0,87,210,.15);
-  --blue-bd:  rgba(77,133,255,.4);
-  --blue-dk:  #003DA5;
+  --blue:     #4080D0; 
+  --blue-lt:  rgba(64,128,208,.15);
+  --blue-bd:  rgba(64,128,208,.4);
+  --blue-dk:  #003F72;
 
-  --red-lt:   rgba(220,38,38,.12);
-  --red-bd:   rgba(220,38,38,.35);
+  --red-lt:   rgba(227,6,19,.12);
+  --red-bd:   rgba(227,6,19,.35);
 
   --amb-lt:   rgba(217,119,6,.12);
   --amb-bd:   rgba(217,119,6,.35);
@@ -116,10 +111,9 @@ input  { font-family: inherit; font-size: 14px; }
 }
 .login-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
 .login-brand-sq {
-  width: 36px; height: 36px; background-color: #ffffff; border-radius: 5px; 
+  width: 36px; height: 36px; background-color: var(--blue); border-radius: 5px; 
   display: flex; align-items: center; justify-content: center;
-  font-size: 0; color: transparent; flex-shrink: 0;
-  background-image: var(--logo-url); background-size: 75%; background-repeat: no-repeat; background-position: center;
+  font-size: 16px; font-weight: 800; color: #fff; flex-shrink: 0;
 }
 .login-brand-name { font-size: 15px; font-weight: 700; color: var(--text); }
 .login-brand-sub  { font-size: 11px; color: var(--muted); }
@@ -152,12 +146,11 @@ input  { font-family: inherit; font-size: 14px; }
 .sidebar { width: 220px; min-width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
 .sb-logo { padding: 18px 18px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 9px; }
 .sb-logo-sq {
-  width: 32px; height: 32px; background-color: #ffffff; border-radius: 4px; 
+  width: 32px; height: 32px; background-color: var(--blue); border-radius: 4px; 
   display: flex; align-items: center; justify-content: center;
-  font-size: 0; color: transparent; flex-shrink: 0;
-  background-image: var(--logo-url); background-size: 75%; background-repeat: no-repeat; background-position: center;
+  font-size: 15px; font-weight: 800; color: #fff; flex-shrink: 0;
 }
-html.dark .login-brand-sq, html.dark .sb-logo-sq { filter: invert(1); background-color: transparent; }
+html.dark .sb-logo-sq { background-color: var(--blue); }
 
 .sb-logo-name { font-size: 14px; font-weight: 700; color: var(--text); }
 .sb-logo-sub  { font-size: 10px; color: var(--muted); }
@@ -237,25 +230,28 @@ tbody tr:hover { background: var(--bg); }
 tbody td { padding: 11px 16px; font-size: 13px; color: var(--sub); }
 td.mono { font-family: var(--mono); font-size: 12px; }
 
-.kpi-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 24px; }
+
 .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 18px 20px; }
 .kpi:hover { box-shadow: var(--shadow); }
 .kpi.red   { border-left: 3px solid var(--red); } .kpi.amber { border-left: 3px solid var(--amber); } .kpi.green { border-left: 3px solid var(--green); } .kpi.blue  { border-left: 3px solid var(--blue); }
 .kpi-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
 .kpi-val   { font-size: 30px; font-weight: 800; line-height: 1; font-family: var(--mono); margin-bottom: 4px; color: var(--text); }
 .kpi-sub   { font-size: 11px; color: var(--muted); }
-.c-red   { color: var(--red); } .c-amber { color: var(--amber); } .c-green { color: var(--green); } .c-blue  { color: var(--blue); }
+.c-red { color: var(--red); } .c-amber { color: var(--amber); } .c-green { color: var(--green); } .c-blue { color: var(--blue); }
+.search-input { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; font-size: 12px; color: var(--text); width: 220px; outline: none; transition: border-color .15s; }
+.search-input:focus { border-color: var(--blue); }
+.search-input::placeholder { color: var(--muted); } .c-blue  { color: var(--blue); }
 
 .dash-cols { display: block; }
 
 .prio { width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; font-family: var(--mono); }
 .prio.p1 { background: var(--red-lt);  color: var(--red); } .prio.p2 { background: var(--amb-lt);  color: var(--amber); } .prio.p3 { background: var(--grn-lt);  color: var(--green); }
-.drag-handle { width: 24px; height: 24px; border: 1px solid var(--border2); border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: grab; background: var(--surface); transition: border-color .12s, background .12s; }
+.drag-handle { width: 24px; height: 24px; border: 1px solid var(--border2); border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: grab; background: var(--surface); }
 .drag-handle:hover { border-color: var(--blue); background: var(--blue-lt); }
 .drag-handle:active { cursor: grabbing; }
 .drag-handle span { width: 12px; height: 1px; background: var(--muted); border-radius: 99px; }
-tr.dragging { opacity: .55; }
-tr.drag-over { background: var(--blue-lt); }
+tr.dragging { opacity: .4; }
+tr.drag-over { background: var(--blue-lt); box-shadow: inset 0 3px 0 var(--blue); }
 .row-actions { display: flex; align-items: center; gap: 8px; }
 .pending-open td { color: var(--muted); }
 .pending-open .badge { opacity: .85; }
@@ -329,6 +325,9 @@ tr.drag-over { background: var(--blue-lt); }
 @keyframes pulse-dot { 0%,100% { box-shadow: 0 0 0 3px var(--red-lt); } 50% { box-shadow: 0 0 0 5px var(--red-lt); } }
 @keyframes bump { 0%{transform:scale(1);} 50%{transform:scale(1.3);} 100%{transform:scale(1);} }
 
+.apertura-input { width: 52px; border: 1px solid var(--border2); border-radius: 4px; padding: 2px 4px; font-family: var(--mono); font-size: 12px; text-align: center; background: var(--bg); color: var(--text); outline: none; }
+.apertura-input:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(0,63,114,.15); }
+
 * { scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
 
 /* Responsive Mobile */
@@ -336,7 +335,7 @@ tr.drag-over { background: var(--blue-lt); }
   .sidebar { width: 70px; min-width: 70px; }
   .sb-logo-name, .sb-logo-sub, .sb-section-label, .nav-item span:not(.nav-icon), .user-name, .user-role { display: none; }
   .nav-item { justify-content: center; }
-  .kpi-grid, .import-cols { grid-template-columns: 1fr; }
+  .import-cols { grid-template-columns: 1fr; }
 }
 </style>
 </head>
@@ -362,7 +361,7 @@ tr.drag-over { background: var(--blue-lt); }
 
     <div class="field-wrap">
       <label class="field-label" for="login-user">Usuario <span class="req">*</span></label>
-      <input class="field-input" type="text" id="login-user" placeholder="usuario.apellido" autocomplete="off" oninput="clearFieldError('login-user','err-user')"/>
+      <input class="field-input" type="text" id="login-user" placeholder="usuario.apellido" autocomplete="off" oninput="clearFieldError('login-user','err-user')" onkeydown="if(event.key==='Enter'||event.keyCode===13)doLogin()"/>
       <div class="field-error" id="err-user">
         <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="5"/><path d="M6 4v3M6 8.5v.5"/></svg>
         El campo Usuario es obligatorio.
@@ -371,7 +370,7 @@ tr.drag-over { background: var(--blue-lt); }
 
     <div class="field-wrap">
       <label class="field-label" for="login-pass">Contraseña <span class="req">*</span></label>
-      <input class="field-input" type="password" id="login-pass" placeholder="••••••••" oninput="clearFieldError('login-pass','err-pass')" onkeydown="if(event.key==='Enter')doLogin()"/>
+      <input class="field-input" type="password" id="login-pass" placeholder="••••••••" oninput="clearFieldError('login-pass','err-pass')" onkeydown="if(event.key==='Enter'||event.keyCode===13)doLogin()"/>
       <div class="field-error" id="err-pass">
         <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="5"/><path d="M6 4v3M6 8.5v.5"/></svg>
         El campo Contraseña es obligatorio.
@@ -465,24 +464,18 @@ tr.drag-over { background: var(--blue-lt); }
     <div class="content">
       <!-- ─── DASHBOARD ─── -->
       <div class="page active" id="page-dashboard">
-        <div class="kpi-grid">
-          <div class="kpi red"><div class="kpi-label">Cobertura crítica</div><div class="kpi-val c-red" id="kpi-critical">0</div><div class="kpi-sub">Menor a 2 horas</div></div>
-          <div class="kpi amber"><div class="kpi-label">En atención</div><div class="kpi-val c-amber" id="kpi-attention">0</div><div class="kpi-sub">Cobertura menor a 5 horas</div></div>
-          <div class="kpi green"><div class="kpi-label">Cambios pendientes</div><div class="kpi-val c-green" id="kpi-pending">0</div><div class="kpi-sub">Requieren aplicar cambios</div></div>
-        </div>
-
         <div class="sec-hdr">
           <div class="sec-title">Orden de apertura</div>
-          <div class="sec-count" id="apertura-count">0 contenedores</div>
           <div class="sec-actions">
             <button class="btn btn-ghost btn-sm" onclick="exportPlanPDF()">Exportar</button>
             <button class="btn btn-ghost btn-sm" onclick="refreshSem()">Actualizar</button>
+            <button class="btn btn-primary btn-sm" onclick="openAddModal()">Agregar contenedor</button>
             <button class="btn btn-primary btn-sm" onclick="applyChanges()">Aplicar cambios</button>
           </div>
         </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th></th><th>Orden</th><th>Contenedor</th><th>Pieza</th><th>Stock</th><th>Cobertura</th><th>Punto de consumo</th><th>Estado</th><th>Acción</th></tr></thead>
+            <thead><tr><th></th><th>Orden</th><th>Contenedor</th><th>Pieza</th><th>Punto de consumo</th><th>Apertura</th><th>Acción</th></tr></thead>
             <tbody id="tbl-apertura"></tbody>
           </table>
         </div>
@@ -509,12 +502,13 @@ tr.drag-over { background: var(--blue-lt); }
           <div class="sec-title">Piezas</div>
           <div class="sec-count" id="piezas-count">0 piezas</div>
           <div class="sec-actions">
-            <button class="btn btn-ghost btn-sm" onclick="renderPiezas()">Actualizar</button>
+            <input class="search-input" id="piezas-search" placeholder="Buscar por Ref o designación..." oninput="searchPiezas(this.value)" />
+            <button class="btn btn-ghost btn-sm" onclick="byId('piezas-search').value='';renderPiezas()">Actualizar</button>
           </div>
         </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>Ref</th><th>Designación</th><th>Stock MAG + BDL</th><th>Flujo hoy</th><th>Flujo mañana</th><th>Dársena</th><th>Flujo espe</th></tr></thead>
+            <thead><tr><th>Ref</th><th>Designación</th><th>Stock</th><th>Necesidad</th><th>Déficit</th></tr></thead>
             <tbody id="tbl-piezas"></tbody>
           </table>
         </div>
@@ -623,6 +617,7 @@ tr.drag-over { background: var(--blue-lt); }
 <script>
 let selectedFiles = { a: null, b: null };
 let planState = [];
+let aperturaTimes = {};
 let piezasState = [];
 let planLoaded = false;
 let planError = '';
@@ -630,7 +625,7 @@ let pendingOpen = new Set();
 let openedContainers = [];
 let changes = [];
 let clockStarted = false;
-let draggedPlanIndex = null;
+let dragFromIndex = null, dragOverIndex = null;
 
 function toggleDark() { document.documentElement.classList.toggle('dark'); }
 
@@ -663,6 +658,13 @@ function formatNumber(value) {
   return Math.round(numberOrZero(value)).toLocaleString('es-AR');
 }
 
+function formatearPuntoConsumo(linea, pto_descarga) {
+  const codigo = linea || pto_descarga || '';
+  const limpio = codigo.replace(/\s+/g, '').slice(0, 3);
+  const mapa = { '771': '771 (Chapa)', '774': '774 (Montaje)' };
+  return mapa[limpio] || codigo || '-';
+}
+
 function formatTime(value) {
   const d = value ? new Date(value) : new Date();
   return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
@@ -684,7 +686,7 @@ function doLogin() {
     let initials = u.split('.').map(n => n.charAt(0).toUpperCase()).join('').substring(0,2);
     byId('sb-av').innerText = initials || 'MB';
     byId('sb-name').innerText = u.replace('.', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'M. Bisso';
-    renderAll();
+    try { renderAll(); } catch(e) { console.error(e); }
     startClock();
     showToast('Bienvenido al sistema', 'ok');
   }
@@ -733,7 +735,7 @@ async function loadPlan(force, notify) {
 
   planLoaded = false;
   planError = '';
-  if(byId('tbl-apertura')) byId('tbl-apertura').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:16px;">Cargando plan de apertura...</td></tr>';
+  if(byId('tbl-apertura')) byId('tbl-apertura').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px;">Cargando plan de apertura...</td></tr>';
 
   try {
     const resp = await fetch('/plan_apertura');
@@ -777,19 +779,16 @@ function renderPlanViews() {
 }
 
 function updatePlanMetrics(rows) {
-  byId('kpi-critical').innerText = rows.filter(c => c.estado === 'red').length;
-  byId('kpi-attention').innerText = rows.filter(c => c.estado === 'amber').length;
 }
 
 function renderPlanTable(rows) {
-  const tbody = byId('tbl-apertura');
-  byId('apertura-count').innerText = rows.length + ' contenedores';
+   const tbody = byId('tbl-apertura');
   if(planError) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:16px;">${escapeHtml(planError)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px;">${escapeHtml(planError)}</td></tr>`;
     return;
   }
   if(rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:16px;">No hay contenedores pendientes de apertura.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px;">No hay contenedores pendientes de apertura.</td></tr>';
     return;
   }
 
@@ -805,11 +804,9 @@ function renderPlanTable(rows) {
       <td><div class="prio ${prioClass}">${idx + 1}</div></td>
       <td class="mono nowrap">${escapeHtml(c.num_contenedor)}</td>
       <td>${escapeHtml(c.designacion || c.ref)}</td>
-      <td class="mono">${formatNumber(c.stock_actual)}</td>
-      <td class="mono">${numberOrZero(c.cobertura_horas).toFixed(1)}h</td>
-      <td>${escapeHtml(c.linea || '-')}</td>
-      <td><span class="badge ${escapeHtml(c.estado || 'amber')}">${escapeHtml(c.estado_label || 'Atención')}</span></td>
-      <td><div class="row-actions"><button class="btn btn-ghost btn-sm" onclick="toggleContainerOpenPending(${idx})">${isPendingOpen ? 'Cancelar' : 'Marcar abierto'}</button></div></td>
+      <td>${escapeHtml(formatearPuntoConsumo(c.linea, c.pto_descarga))}</td>
+      <td><input class="apertura-input" type="text" data-id="${escapeHtml(String(c.num_contenedor))}" value="${escapeHtml(aperturaTimes[String(c.num_contenedor)] || '')}" placeholder="__ : __" oninput="aperturaTimes[this.dataset.id]=this.value" /></td>
+      <td><div class="row-actions"><button class="btn btn-ghost btn-sm" onclick="toggleContainerOpenPending(${idx})">${isPendingOpen ? 'Cancelar' : 'Marcar abierto'}</button><button class="btn btn-ghost btn-sm btn-danger" onclick="deleteContainerFromPlan(${idx})" title="Eliminar del plan" style="color:var(--red)">Eliminar</button></div></td>
     </tr>`;
   }).join('');
 }
@@ -856,7 +853,8 @@ function regenPlan() {
 }
 
 function startPlanDrag(event, visibleIndex) {
-  draggedPlanIndex = visibleIndex;
+  dragFromIndex = visibleIndex;
+  dragOverIndex = null;
   event.dataTransfer.effectAllowed = 'move';
   event.dataTransfer.setData('text/plain', String(visibleIndex));
   const row = event.target.closest('tr');
@@ -864,24 +862,33 @@ function startPlanDrag(event, visibleIndex) {
 }
 
 function dragOverPlan(event, targetIndex) {
-  if(draggedPlanIndex === null || draggedPlanIndex === targetIndex) return;
+  if (dragFromIndex === null) return;
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
-  document.querySelectorAll('#tbl-apertura tr').forEach(row => row.classList.remove('drag-over'));
-  const row = event.currentTarget;
-  if(row) row.classList.add('drag-over');
+  if (dragOverIndex !== null && dragOverIndex !== targetIndex) {
+    const prev = document.querySelector(`#tbl-apertura tbody tr:nth-child(${dragOverIndex + 1})`);
+    if (prev) prev.classList.remove('drag-over');
+  }
+  dragOverIndex = targetIndex;
+  if (dragFromIndex !== targetIndex) {
+    event.currentTarget.classList.add('drag-over');
+  }
 }
 
 function dropPlan(event, targetIndex) {
   event.preventDefault();
-  const fromIndex = draggedPlanIndex !== null ? draggedPlanIndex : Number(event.dataTransfer.getData('text/plain'));
+  const from = dragFromIndex;
   endPlanDrag();
-  reorderPlan(fromIndex, targetIndex);
+  if (from !== null && from !== targetIndex) {
+    setTimeout(() => reorderPlan(from, targetIndex), 30);
+  }
 }
 
 function endPlanDrag() {
-  draggedPlanIndex = null;
-  document.querySelectorAll('#tbl-apertura tr').forEach(row => row.classList.remove('dragging', 'drag-over'));
+  document.querySelectorAll('#tbl-apertura tbody tr').forEach(row =>
+    row.classList.remove('dragging', 'drag-over'));
+  dragFromIndex = null;
+  dragOverIndex = null;
 }
 
 function reorderPlan(fromIndex, targetIndex) {
@@ -936,6 +943,22 @@ function toggleContainerOpenPending(visibleIndex) {
   showToast('Apertura pendiente. Aplicá cambios para confirmarla.', 'info');
 }
 
+function deleteContainerFromPlan(visibleIndex) {
+  const item = getVisiblePlan()[visibleIndex];
+  if(!item) return;
+  const id = String(item.num_contenedor);
+  if(!confirm(`¿Eliminar el contenedor ${id} del plan de apertura?`)) return;
+  const realIndex = planState.findIndex(c => String(c.num_contenedor) === id);
+  if(realIndex === -1) return;
+  planState.splice(realIndex, 1);
+  pendingOpen.delete(id);
+  delete aperturaTimes[id];
+  recordChange('manual', 'Contenedor eliminado', `Contenedor ${id} eliminado del plan de apertura`, id);
+  renderPlanViews();
+  renderChanges();
+  showToast(`Contenedor ${id} eliminado del plan.`, 'info');
+}
+
 function recordChange(type, title, description, containerId, payload) {
   changes.unshift({
     id: Date.now() + '-' + Math.random().toString(36).slice(2),
@@ -981,9 +1004,10 @@ function applyChanges() {
     .filter(c => c.type === 'apertura')
     .forEach(change => {
       if(openedContainers.some(c => String(c.num_contenedor) === change.containerId)) return;
+      const manualHora = aperturaTimes[change.containerId] || formatTime(appliedAt);
       openedContainers.unshift({
         num_contenedor: change.containerId,
-        hora: formatTime(appliedAt),
+        hora: manualHora,
         estado: 'Abierto'
       });
     });
@@ -1033,36 +1057,52 @@ function updateChangeIndicators() {
   if(byId('changes-count')) byId('changes-count').innerText = pendingCount + ' pendientes';
 }
 
-async function renderPiezas() {
+function renderPiezas() {
   const tbody = byId('tbl-piezas');
   if(!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px;">Cargando piezas...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Busque una pieza por Ref o Designación en el campo superior.</td></tr>';
+  byId('piezas-count').innerText = '0 piezas';
+  byId('piezas-detail').innerHTML = '';
+}
 
-  try {
-    const resp = await fetch('/piezas');
-    const data = await resp.json();
-    piezasState = Array.isArray(data.piezas) ? data.piezas : [];
-    byId('piezas-count').innerText = piezasState.length + ' piezas';
-
-    if(piezasState.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px;">No hay datos de piezas importados.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = piezasState.map(p => `
-      <tr>
-        <td class="mono nowrap">${escapeHtml(p['Ref'])}</td>
-        <td>${escapeHtml(p['Designacao'] || p['Ref'])}</td>
-        <td class="mono">${formatNumber(p['MAG + BDL'])}</td>
-        <td class="mono">${formatNumber(p['flujo_hoy'])}</td>
-        <td class="mono">${formatNumber(p['flujo_manana'])}</td>
-        <td>${escapeHtml(p['Darsena'] || '-')}</td>
-        <td>${escapeHtml(p['Flujo Espe'] || '-')}</td>
-      </tr>
-    `).join('');
-  } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--red);padding:16px;">Error al cargar piezas: ${escapeHtml(err.message)}</td></tr>`;
+let searchTimeout = null;
+function searchPiezas(q) {
+  clearTimeout(searchTimeout);
+  if (!q.trim()) {
+    renderPiezas();
+    return;
   }
+  searchTimeout = setTimeout(async () => {
+    const tbody = byId('tbl-piezas');
+    if(!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px;">Buscando...</td></tr>';
+    try {
+      const resp = await fetch('/buscar_pieza?q=' + encodeURIComponent(q));
+      const data = await resp.json();
+      piezasState = data.results || [];
+      byId('piezas-count').innerText = piezasState.length + ' resultados';
+      if(piezasState.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px;">Sin resultados.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = piezasState.map(p => renderPiezaRow(p)).join('');
+    } catch(e) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--red);padding:16px;">Error: ${escapeHtml(e.message)}</td></tr>`;
+    }
+  }, 300);
+}
+
+function renderPiezaRow(p) {
+  const stock = p.stock_actual || 0;
+  const necesidad = p.necesidad || 0;
+  const deficit = p.deficit || 0;
+  return `<tr>
+    <td class="mono nowrap">${escapeHtml(p['Ref'])}</td>
+    <td>${escapeHtml(p['Designacao'] || p['Ref'])}</td>
+    <td class="mono">${formatNumber(stock)}</td>
+    <td class="mono">${formatNumber(necesidad)}</td>
+    <td class="mono ${deficit > 0 ? 'c-red' : ''}">${formatNumber(deficit)}</td>
+  </tr>`;
 }
 
 function startClock() {
@@ -1290,10 +1330,14 @@ async function exportPlanPDF() {
       showToast('No hay contenedores para exportar.', 'err');
       return;
     }
+    const planWithApertura = currentPlan.map(c => ({
+      ...c,
+      hora_apertura: aperturaTimes[String(c.num_contenedor)] || ''
+    }));
     const resp = await fetch('/exportar_plan_pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan: currentPlan })
+      body: JSON.stringify({ plan: planWithApertura })
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ error: 'Error del servidor' }));

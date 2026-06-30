@@ -660,7 +660,7 @@ def plan_apertura():
         contenedores_seleccionados = set()
         plan_final = []
 
-        for _ in range(10):
+        for _ in range(12):
             mejor_contenedor = None
             mejor_ganancia = 0
 
@@ -725,7 +725,7 @@ def plan_apertura():
             'success': True,
             'plan': plan_final,
             'total_contenedores': len(plan_final),
-            'message': f'Plan generado con {len(plan_final)} contenedores a abrir (máx 10/día)'
+            'message': f'Plan generado con {len(plan_final)} contenedores a abrir (máx 12/día)'
         })
 
     except Exception as e:
@@ -849,10 +849,10 @@ def generar_pdf_plan(datos):
 
     c.setFont('Helvetica', 8)
     c.setFillColorRGB(0.15, 0.15, 0.15)
-    c.drawRightString(COL_X[0] + TOTAL_W, 288*mm, f'Fecha: {now.strftime("%d/%m/%Y")}')
+    c.drawRightString(COL_X[0] + TOTAL_W, 290*mm, f'Fecha: {now.strftime("%d/%m/%Y")}')
 
-    H_TOP = 280*mm
-    H_BOT = 268*mm
+    H_TOP = 276*mm
+    H_BOT = 264*mm
     c.setFillColorRGB(0.82, 0.82, 0.82)
     c.rect(COL_X[0], H_BOT, TOTAL_W, H_TOP - H_BOT, fill=1, stroke=0)
     c.setStrokeColorRGB(0.25, 0.25, 0.25)
@@ -861,9 +861,10 @@ def generar_pdf_plan(datos):
     c.setFont('Helvetica-Bold', 9)
     c.setFillColorRGB(0, 0, 0)
     for i, lbl in enumerate(COLS):
-        c.drawCentredString(COL_X[i] + COL_W[i] / 2, 274*mm, lbl)
+        c.drawCentredString(COL_X[i] + COL_W[i] / 2, 271*mm, lbl)
 
     n = len(datos)
+    col_edges = list(COL_X) + [COL_X[-1] + COL_W[-1]]
     for fi in range(n):
         item = datos[fi]
         yt = H_BOT - fi * ROW_H
@@ -873,31 +874,37 @@ def generar_pdf_plan(datos):
         if fi % 2 == 0:
             c.setFillColorRGB(0.95, 0.95, 0.95)
             c.rect(COL_X[0], yb, TOTAL_W, yt - yb, fill=1, stroke=0)
+
         c.setStrokeColorRGB(0.25, 0.25, 0.25)
         c.setLineWidth(0.3)
-        c.rect(COL_X[0], yb, TOTAL_W, yt - yb, fill=0, stroke=1)
+        for x in col_edges:
+            c.line(x, yb, x, yt)
+
+        c.setStrokeColorRGB(0.25, 0.25, 0.25)
+        c.setLineWidth(0.3)
+        c.line(COL_X[0], yb, COL_X[0] + TOTAL_W, yb)
+        c.line(COL_X[0], yt, COL_X[0] + TOTAL_W, yt)
 
         c.setFillColorRGB(0, 0, 0)
-        c.setFont('Helvetica-Bold', 9)
+        c.setFont('Helvetica-Bold', 8)
         c.drawCentredString(COL_X[0] + COL_W[0] / 2, y_text, str(fi + 1))
 
-        c.setFont('Helvetica-Bold', 9)
+        c.setFont('Helvetica', 8)
         txt = item.get('num_contenedor', '')
         c.drawString(COL_X[1] + 2, y_text, txt)
-        ref = item.get('designacion') or item.get('ref', '') or ''
-        if ref:
-            c.setFont('Helvetica', 7)
-            c.setFillColorRGB(0.4, 0.4, 0.4)
-            rx = COL_X[1] + 2 + c.stringWidth(txt, 'Helvetica-Bold', 9) + 2
-            c.drawString(rx, y_text, f'({ref})')
-            c.setFillColorRGB(0, 0, 0)
 
-        c.setStrokeColorRGB(0.3, 0.3, 0.3)
-        c.setLineWidth(0.3)
-        hc = COL_X[2] + COL_W[2] / 2
-        hy = y_text + 1
-        c.line(hc - 9, hy, hc - 2, hy)
-        c.line(hc + 2, hy, hc + 9, hy)
+        hora = item.get('hora_apertura', '')
+        if hora:
+            c.setFont('Helvetica', 8)
+            c.setFillColorRGB(0, 0, 0)
+            c.drawCentredString(COL_X[2] + COL_W[2] / 2, y_text, hora)
+        else:
+            c.setStrokeColorRGB(0.3, 0.3, 0.3)
+            c.setLineWidth(0.3)
+            hc = COL_X[2] + COL_W[2] / 2
+            hy = y_text + 1
+            c.line(hc - 9, hy, hc - 2, hy)
+            c.line(hc + 2, hy, hc + 9, hy)
 
         c.setStrokeColorRGB(0.2, 0.2, 0.2)
         c.setLineWidth(0.4)
@@ -944,6 +951,76 @@ def exportar_plan_pdf():
             as_attachment=True,
             download_name=f'plan_apertura_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
         )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/buscar_pieza', methods=['GET'])
+def buscar_pieza():
+    try:
+        q = request.args.get('q', '').strip()
+        db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
+        if not os.path.exists(db_path):
+            return jsonify({'results': []})
+        if not q:
+            return jsonify({'results': []})
+        conexion = sqlite3.connect(db_path)
+        cursor = conexion.cursor()
+        like = f'%{q}%'
+        cursor.execute('''
+            SELECT "Ref", "Designacao", "MAG + BDL", "flujo_hoy", "flujo_manana", "Darsena", "Flujo Espe"
+            FROM piezas
+            WHERE "Ref" LIKE ? OR "Designacao" LIKE ?
+            LIMIT 50
+        ''', (like, like))
+        rows = cursor.fetchall()
+        cols = [d[0] for d in cursor.description]
+        piezas = [dict(zip(cols, r)) for r in rows]
+
+        for p in piezas:
+            ref = str(p['Ref']).strip()
+            p['Ref'] = ref
+            cursor.execute('''
+                SELECT "NUM_CONTENEDOR", "CANTIDAD"
+                FROM inventario
+                WHERE TRIM(CAST("PLANO" AS TEXT)) = ?
+            ''', (ref,))
+            conts = cursor.fetchall()
+            p['contenedores'] = [{'NUM_CONTENEDOR': c[0], 'CANTIDAD': c[1]} for c in conts if c[1]]
+            stock = float(p['MAG + BDL']) if p['MAG + BDL'] is not None else 0
+            hoy = float(p['flujo_hoy']) if p['flujo_hoy'] is not None else 0
+            manana = float(p['flujo_manana']) if p['flujo_manana'] is not None else 0
+            necesidad = hoy + manana
+            p['stock_actual'] = stock
+            p['necesidad'] = necesidad
+            p['deficit'] = max(0, necesidad - stock)
+
+        conexion.close()
+        return jsonify({'results': piezas})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/simular_contenedor', methods=['POST'])
+def simular_contenedor():
+    try:
+        data = request.get_json()
+        ref = data.get('ref', '')
+        cantidad = int(data.get('cantidad', 0))
+        stock = float(data.get('stock', 0))
+        necesidad = float(data.get('necesidad', 0))
+        nuevo_stock = stock + cantidad
+        nuevo_deficit = max(0, necesidad - nuevo_stock)
+        cubre = nuevo_deficit == 0 and necesidad > 0
+        return jsonify({
+            'stock_anterior': stock,
+            'stock_nuevo': nuevo_stock,
+            'deficit_anterior': max(0, necesidad - stock),
+            'deficit_nuevo': nuevo_deficit,
+            'cubre_necesidad': cubre
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1055,7 +1132,7 @@ def plan_apertura_json():
         deficit_por_ref = {item['ref']: item['deficit'] for item in items}
         seleccionados = set()
         final = []
-        for _ in range(10):
+        for _ in range(12):
             mejor = None
             mejor_ganancia = 0
             for c in pool:
