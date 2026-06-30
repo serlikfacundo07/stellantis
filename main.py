@@ -17,7 +17,8 @@ def verificar_e_instalar_dependencias():
         "pandas": "pandas",
         "openpyxl": "openpyxl",
         "xlrd": "xlrd",
-        "reportlab": "reportlab"
+        "reportlab": "reportlab",
+        "werkzeug": "Werkzeug"
     }
     
     faltantes = []
@@ -60,6 +61,123 @@ def index():
 
 import sqlite3
 import pandas as pd
+from werkzeug.security import generate_password_hash
+
+# =====================================================================
+# 🗄️ TABLAS DE HISTORIAL (plan, aperturas, cambios, usuarios)
+# =====================================================================
+def inicializar_tablas_historial():
+    db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS plan_apertura (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha_generacion TEXT NOT NULL,
+            prioridad INTEGER,
+            num_contenedor TEXT,
+            pto_descarga TEXT,
+            ref TEXT,
+            designacion TEXT,
+            plano TEXT,
+            desc_plano TEXT,
+            cantidad_contenedor INTEGER,
+            stock_actual INTEGER,
+            necesidad_hoy INTEGER,
+            necesidad_manana INTEGER,
+            deficit INTEGER,
+            cobertura_horas REAL,
+            linea TEXT,
+            estado TEXT,
+            estado_label TEXT
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS aperturas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha_apertura TEXT NOT NULL,
+            num_contenedor TEXT,
+            hora TEXT,
+            estado TEXT,
+            usuario TEXT DEFAULT ''
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS cambios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha_cambio TEXT NOT NULL,
+            tipo TEXT,
+            titulo TEXT,
+            descripcion TEXT,
+            container_id TEXT,
+            payload TEXT,
+            status TEXT,
+            usuario TEXT DEFAULT ''
+        )
+    ''')
+    # Migración: agregar columna usuario si no existe (tablas creadas antes de esta versión)
+    for tbl in ['aperturas', 'cambios']:
+        try:
+            c.execute(f'ALTER TABLE {tbl} ADD COLUMN usuario TEXT DEFAULT \'\'')
+        except sqlite3.OperationalError:
+            pass  # ya existe
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS usuarios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            nombre TEXT NOT NULL,
+            rol TEXT NOT NULL DEFAULT 'Supervisor'
+        )
+    ''')
+    # Seed usuarios por defecto (solo si no existen)
+    usuarios_default = [
+        ('admin', generate_password_hash('admin123'), 'Admin Sistema', 'Administrador'),
+        ('supervisor', generate_password_hash('super123'), 'Supervisor Planta', 'Supervisor')
+    ]
+    for u, pwh, nom, rol in usuarios_default:
+        c.execute('INSERT OR IGNORE INTO usuarios (usuario, password_hash, nombre, rol) VALUES (?, ?, ?, ?)',
+                  (u, pwh, nom, rol))
+    conn.commit()
+    conn.close()
+
+# Crear tablas al arrancar
+inicializar_tablas_historial()
+
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    try:
+        data = request.get_json(force=True)
+        usuario = data.get('usuario', '').strip().lower()
+        password = data.get('password', '')
+
+        if not usuario or not password:
+            return jsonify({'success': False, 'error': 'Usuario y contraseña requeridos'}), 400
+
+        db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
+        conn = sqlite3.connect(db_path)
+        c = conn.cursor()
+        c.execute('SELECT usuario, password_hash, nombre, rol FROM usuarios WHERE usuario = ?', (usuario,))
+        row = c.fetchone()
+        conn.close()
+
+        if row is None:
+            return jsonify({'success': False, 'error': 'Usuario o contraseña incorrectos'}), 401
+
+        from werkzeug.security import check_password_hash
+        if not check_password_hash(row[1], password):
+            return jsonify({'success': False, 'error': 'Usuario o contraseña incorrectos'}), 401
+
+        return jsonify({
+            'success': True,
+            'usuario': row[0],
+            'nombre': row[2],
+            'rol': row[3]
+        })
+
+    except Exception as e:
+        return jsonify({'error': f'Error en login: {str(e)}'}), 500
+
 
 @app.route('/procesar', methods=['POST'])
 def procesar():
@@ -721,6 +839,30 @@ def plan_apertura():
                 'estado_label': estado_label
             })
 
+        # Guardar plan en tabla de historial
+        if plan_final:
+            try:
+                conn2 = sqlite3.connect(db_path)
+                fecha = datetime.now().isoformat()
+                for item in plan_final:
+                    conn2.execute('''
+                        INSERT INTO plan_apertura
+                        (fecha_generacion, prioridad, num_contenedor, pto_descarga, ref, designacion,
+                         plano, desc_plano, cantidad_contenedor, stock_actual, necesidad_hoy,
+                         necesidad_manana, deficit, cobertura_horas, linea, estado, estado_label)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        fecha, item['prioridad'], item['num_contenedor'], item['pto_descarga'],
+                        item['ref'], item['designacion'], item['plano'], item['desc_plano'],
+                        item['cantidad_contenedor'], item['stock_actual'], item['necesidad_hoy'],
+                        item['necesidad_manana'], item['deficit'], item['cobertura_horas'],
+                        item['linea'], item['estado'], item['estado_label']
+                    ))
+                conn2.commit()
+                conn2.close()
+            except Exception as e_save:
+                print(f"Error al guardar historial de plan: {e_save}")
+
         return jsonify({
             'success': True,
             'plan': plan_final,
@@ -732,6 +874,95 @@ def plan_apertura():
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'Error al generar plan de apertura: {str(e)}'}), 500
+
+
+@app.route('/guardar_aperturas', methods=['POST'])
+def guardar_aperturas():
+    try:
+        data = request.get_json(force=True)
+        aperturas = data.get('aperturas', [])
+        usuario = data.get('usuario', '')
+        db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
+        conn = sqlite3.connect(db_path)
+        fecha = datetime.now().isoformat()
+        for ap in aperturas:
+            conn.execute('''
+                INSERT INTO aperturas (fecha_apertura, num_contenedor, hora, estado, usuario)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (fecha, ap.get('num_contenedor', ''), ap.get('hora', ''), ap.get('estado', 'Abierto'), usuario))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'guardados': len(aperturas)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/guardar_cambios', methods=['POST'])
+def guardar_cambios():
+    try:
+        data = request.get_json(force=True)
+        cambios = data.get('cambios', [])
+        usuario = data.get('usuario', '')
+        db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
+        conn = sqlite3.connect(db_path)
+        for ch in cambios:
+            conn.execute('''
+                INSERT INTO cambios (fecha_cambio, tipo, titulo, descripcion, container_id, payload, status, usuario)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                ch.get('appliedAt') or ch.get('createdAt') or datetime.now().isoformat(),
+                ch.get('type', ''),
+                ch.get('title', ''),
+                ch.get('description', ''),
+                ch.get('containerId', ''),
+                json.dumps(ch.get('payload', {})),
+                ch.get('status', 'pending'),
+                usuario
+            ))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'guardados': len(cambios)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/historial', methods=['GET'])
+def api_historial():
+    try:
+        db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
+        if not os.path.exists(db_path):
+            return jsonify({'aperturas': [], 'cambios': []})
+
+        conn = sqlite3.connect(db_path)
+        c = conn.cursor()
+
+        c.execute('SELECT num_contenedor, hora, estado FROM aperturas ORDER BY id DESC')
+        aperturas = [{'num_contenedor': r[0], 'hora': r[1], 'estado': r[2]} for r in c.fetchall()]
+
+        c.execute('SELECT tipo, titulo, descripcion, container_id, payload, status, fecha_cambio FROM cambios ORDER BY id DESC')
+        cambios = []
+        for r in c.fetchall():
+            try:
+                payload = json.loads(r[4]) if r[4] else {}
+            except (json.JSONDecodeError, TypeError):
+                payload = {}
+            fecha = r[6]
+            cambios.append({
+                'id': 'hist-' + str(len(cambios)),
+                'type': r[0],
+                'title': r[1],
+                'description': r[2],
+                'containerId': r[3] or '',
+                'payload': payload,
+                'status': r[5],
+                'createdAt': fecha,
+                'appliedAt': fecha if r[5] == 'applied' else None
+            })
+
+        conn.close()
+        return jsonify({'aperturas': aperturas, 'cambios': cambios})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/exportar_datos', methods=['GET'])
