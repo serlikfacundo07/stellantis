@@ -379,7 +379,7 @@ tr.drag-over { background: var(--blue-lt); }
     </div>
 
     <button class="login-btn" onclick="doLogin()">Ingresar</button>
-    <div class="login-footer">v1.0 &nbsp;·&nbsp; Sprint 1 &nbsp;·&nbsp; Prototipo UX/UI &nbsp;·&nbsp; Equipo 7</div>
+    <div class="login-footer">MVP</div>
   </div>
 </div>
 
@@ -491,6 +491,9 @@ tr.drag-over { background: var(--blue-lt); }
             <div class="sec-hdr">
               <div class="sec-title">Últimas aperturas</div>
               <div class="sec-count">Hoy</div>
+              <div class="sec-actions">
+                <button class="btn btn-ghost btn-sm" onclick="clearOpenings()">Limpiar</button>
+              </div>
             </div>
             <div class="tbl-wrap">
               <table>
@@ -609,6 +612,9 @@ tr.drag-over { background: var(--blue-lt); }
         <div class="sec-hdr">
           <div class="sec-title">Cambios</div>
           <div class="sec-count" id="changes-count">0 pendientes</div>
+          <div class="sec-actions">
+            <button class="btn btn-ghost btn-sm" onclick="clearChanges()">Limpiar</button>
+          </div>
         </div>
         <div class="alert-list" id="changes-list"></div>
       </div>
@@ -1102,6 +1108,27 @@ function updateChangeIndicators() {
   if(byId('changes-count')) byId('changes-count').innerText = pendingCount + ' pendientes';
 }
 
+function clearChanges() {
+  if(changes.length === 0) {
+    showToast('No hay cambios para limpiar.', 'info');
+    return;
+  }
+  changes = [];
+  renderChanges();
+  updateChangeIndicators();
+  showToast('Lista de cambios limpiada.', 'ok');
+}
+
+function clearOpenings() {
+  if(openedContainers.length === 0) {
+    showToast('No hay aperturas para limpiar.', 'info');
+    return;
+  }
+  openedContainers = [];
+  renderOpenings();
+  showToast('Lista de aperturas limpiada.', 'ok');
+}
+
 async function renderPiezas() {
   const tbody = byId('tbl-piezas');
   if(!tbody) return;
@@ -1146,7 +1173,7 @@ function showToast(msg, type) {
   t.className = 'toast ' + type;
   t.innerHTML = `<div class="t-icon">${type==='ok'?'✓':type==='err'?'!':'i'}</div><div>${msg}</div>`;
   area.appendChild(t);
-  setTimeout(() => { t.remove(); }, 4000);
+  setTimeout(() => { t.remove(); }, 2000);
 }
 
 function openAddModal() { byId('modal-add').classList.add('open'); }
@@ -1335,7 +1362,12 @@ async function importAllData(file) {
     if (!resp.ok) throw new Error(result.error || 'Error en importación');
     
     showToast(`Importado OK: ${result.registros_inventario} contenedores, ${result.registros_piezas} piezas`, 'ok');
-    
+
+    // Resetear estado en memoria para evitar mezclar datos viejos con nuevos
+    planState = [];
+    openedContainers = [];
+    changes = [];
+    pendingOpen = new Set();
     planLoaded = false;
     refreshCurrentView();
     

@@ -1379,7 +1379,7 @@ if __name__ == '__main__':
     # 1. Creamos la ventana apuntando a la dirección local del puerto 7777
     api = Api()
     window = webview.create_window(
-        'Mi Aplicación Ejecutable', 
+        'Sistema de Gestión de Autopartes', 
         'http://127.0.0.1:7777', 
         width=1280,
         height=820,
