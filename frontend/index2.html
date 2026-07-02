@@ -464,12 +464,6 @@ tr.drag-over { background: var(--blue-lt); }
     <div class="content">
       <!-- ─── DASHBOARD ─── -->
       <div class="page active" id="page-dashboard">
-        <div class="kpi-grid">
-          <div class="kpi red"><div class="kpi-label">Cobertura crítica</div><div class="kpi-val c-red" id="kpi-critical">0</div><div class="kpi-sub">Menor a 2 horas</div></div>
-          <div class="kpi amber"><div class="kpi-label">En atención</div><div class="kpi-val c-amber" id="kpi-attention">0</div><div class="kpi-sub">Cobertura menor a 5 horas</div></div>
-          <div class="kpi green"><div class="kpi-label">Cambios pendientes</div><div class="kpi-val c-green" id="kpi-pending">0</div><div class="kpi-sub">Requieren aplicar cambios</div></div>
-        </div>
-
         <div class="sec-hdr">
           <div class="sec-title">Orden de apertura</div>
           <div class="sec-count" id="apertura-count">0 contenedores</div>
@@ -477,11 +471,13 @@ tr.drag-over { background: var(--blue-lt); }
             <button class="btn btn-ghost btn-sm" onclick="exportPlanPDF()">Exportar</button>
             <button class="btn btn-ghost btn-sm" onclick="refreshSem()">Actualizar</button>
             <button class="btn btn-primary btn-sm" onclick="applyChanges()">Aplicar cambios</button>
+            <button class="btn btn-primary btn-sm" onclick="openAddModal()">+ Agregar manual</button>
+            <button class="btn btn-ghost btn-sm" onclick="confirmClearAll()">Limpiar todo</button>
           </div>
         </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th></th><th>Orden</th><th>Contenedor</th><th>Pieza</th><th>Stock</th><th>Cobertura</th><th>Punto de consumo</th><th>Estado</th><th>Acción</th></tr></thead>
+            <thead><tr><th></th><th>Orden</th><th>Contenedor</th><th>Pieza</th><th>Punto de consumo</th><th>Hora</th><th>Acción</th></tr></thead>
             <tbody id="tbl-apertura"></tbody>
           </table>
         </div>
@@ -511,6 +507,8 @@ tr.drag-over { background: var(--blue-lt); }
           <div class="sec-title">Piezas</div>
           <div class="sec-count" id="piezas-count">0 piezas</div>
           <div class="sec-actions">
+            <input class="field-input" id="piezas-search" placeholder="Buscar por Ref, Designación, Dársena..." style="width:280px;font-size:12px;padding:6px 10px"/>
+            <div id="piezas-pagination" style="display:flex;gap:6px;align-items:center;margin-left:auto;font-size:11px;color:var(--muted)"></div>
             <button class="btn btn-ghost btn-sm" onclick="renderPiezas()">Actualizar</button>
           </div>
         </div>
@@ -636,6 +634,11 @@ let openedContainers = [];
 let changes = [];
 let clockStarted = false;
 let draggedPlanIndex = null;
+let piezasSearch = '';
+let piezasPage = 1;
+const piezasPageSize = 50;
+let piezasTotal = 0;
+let piezasDebounceTimer = null;
 
 function toggleDark() { document.documentElement.classList.toggle('dark'); }
 
@@ -652,6 +655,13 @@ function closeActionsMenu() {
 document.addEventListener('click', closeActionsMenu);
 
 function byId(id) { return document.getElementById(id); }
+
+function debounce(fn, ms) {
+  return function(...args) {
+    clearTimeout(piezasDebounceTimer);
+    piezasDebounceTimer = setTimeout(() => fn.apply(this, args), ms);
+  };
+}
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, c => ({
@@ -743,7 +753,18 @@ function goPage(page, el) {
   if(page === 'dashboard') {
     planLoaded ? renderPlanViews() : loadPlan(false, false);
   }
-  if(page === 'piezas') renderPiezas();
+  if(page === 'piezas') {
+    const searchInput = byId('piezas-search');
+    if(searchInput && !searchInput.dataset.bound) {
+      searchInput.dataset.bound = '1';
+      searchInput.addEventListener('input', debounce(() => {
+        piezasSearch = searchInput.value;
+        piezasPage = 1;
+        renderPiezas();
+      }, 300));
+    }
+    renderPiezas();
+  }
   if(page === 'cambios') renderChanges();
 }
 
@@ -790,7 +811,8 @@ async function loadPlan(force, notify) {
     planState = data.plan.map((item, idx) => ({
       ...item,
       prioridad: idx + 1,
-      originalOrder: idx + 1
+      originalOrder: idx + 1,
+      hora: item.hora || ''
     }));
     planLoaded = true;
     renderPlanViews();
@@ -811,26 +833,19 @@ function getVisiblePlan() {
 
 function renderPlanViews() {
   const visiblePlan = getVisiblePlan();
-  updatePlanMetrics(visiblePlan);
   renderPlanTable(visiblePlan);
   renderOpenings();
-  updateChangeIndicators();
-}
-
-function updatePlanMetrics(rows) {
-  byId('kpi-critical').innerText = rows.filter(c => c.estado === 'red').length;
-  byId('kpi-attention').innerText = rows.filter(c => c.estado === 'amber').length;
 }
 
 function renderPlanTable(rows) {
   const tbody = byId('tbl-apertura');
   byId('apertura-count').innerText = rows.length + ' contenedores';
   if(planError) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:16px;">${escapeHtml(planError)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px;">${escapeHtml(planError)}</td></tr>`;
     return;
   }
   if(rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:16px;">No hay contenedores pendientes de apertura.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px;">No hay contenedores pendientes de apertura.</td></tr>';
     return;
   }
 
@@ -846,11 +861,12 @@ function renderPlanTable(rows) {
       <td><div class="prio ${prioClass}">${idx + 1}</div></td>
       <td class="mono nowrap">${escapeHtml(c.num_contenedor)}</td>
       <td>${escapeHtml(c.designacion || c.ref)}</td>
-      <td class="mono">${formatNumber(c.stock_actual)}</td>
-      <td class="mono">${numberOrZero(c.cobertura_horas).toFixed(1)}h</td>
       <td>${escapeHtml(c.linea || '-')}</td>
-      <td><span class="badge ${escapeHtml(c.estado || 'amber')}">${escapeHtml(c.estado_label || 'Atención')}</span></td>
-      <td><div class="row-actions"><button class="btn btn-ghost btn-sm" onclick="toggleContainerOpenPending(${idx})">${isPendingOpen ? 'Cancelar' : 'Marcar abierto'}</button></div></td>
+      <td><input type="time" class="modal-input" value="${escapeHtml(c.hora || '')}" onchange="updateContainerHora(${idx}, this.value)" style="width:80px;padding:4px 6px;font-size:12px"/></td>
+      <td><div class="row-actions">
+        <button class="btn btn-ghost btn-sm" onclick="toggleContainerOpenPending(${idx})">${isPendingOpen ? 'Cancelar' : 'Marcar abierto'}</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red-bd)" onclick="confirmDeleteContainer(${idx})">Eliminar</button>
+      </div></td>
     </tr>`;
   }).join('');
 }
@@ -877,16 +893,99 @@ async function restoreOpening(openedIndex) {
   const restored = openedContainers[openedIndex];
   if(!restored) return;
 
+  const id = String(restored.num_contenedor);
+
   openedContainers.splice(openedIndex, 1);
+
+  // Eliminar duplicado existente en planState antes de re-insertar
+  planState = planState.filter(c => String(c.num_contenedor) !== id);
+
+  // Re-insertar al inicio de planState con snapshot completo
+  planState.unshift({
+    num_contenedor: restored.num_contenedor,
+    ref: restored.ref || restored.num_contenedor,
+    designacion: restored.designacion || restored.num_contenedor,
+    stock_actual: restored.stock_actual || 0,
+    cobertura_horas: restored.cobertura_horas || 0,
+    linea: restored.linea || 'N/A',
+    hora: restored.hora || ''
+  });
+
+  // También quitar de pendingOpen y de changes pendientes relacionados
+  pendingOpen.delete(id);
+  changes = changes.filter(ch => !(ch.type === 'apertura' && ch.containerId === id && ch.status === 'pending'));
+
   recordChangeApplied(
     'reversion',
     'Apertura revertida',
-    `Contenedor ${restored.num_contenedor} devuelto al orden de apertura`,
-    restored.num_contenedor
+    `Contenedor ${id} devuelto al orden de apertura`,
+    id
   );
   renderPlanViews();
   await persistAperturas();
   showToast('Contenedor devuelto al orden de apertura.', 'info');
+}
+
+function updateContainerHora(visibleIndex, hora) {
+  const visible = getVisiblePlan();
+  const item = visible[visibleIndex];
+  if(!item) return;
+  const id = String(item.num_contenedor);
+  const idx = planState.findIndex(c => String(c.num_contenedor) === id);
+  if(idx >= 0) planState[idx].hora = hora;
+  if(pendingOpen.has(id)) {
+    changes.forEach(ch => {
+      if(ch.type === 'apertura' && ch.containerId === id) {
+        ch.payload = ch.payload || {};
+        ch.payload.hora = hora;
+      }
+    });
+  }
+}
+
+function confirmDeleteContainer(visibleIndex) {
+  const visible = getVisiblePlan();
+  const item = visible[visibleIndex];
+  if(!item) return;
+  const id = String(item.num_contenedor);
+  if(!confirm(`¿Eliminar el contenedor ${id} del plan de apertura?\nPieza: ${item.designacion || item.ref}\nEsta acción no se puede deshacer.`)) return;
+  deleteContainer(visibleIndex);
+}
+
+function deleteContainer(visibleIndex) {
+  const visible = getVisiblePlan();
+  const item = visible[visibleIndex];
+  if(!item) return;
+  const id = String(item.num_contenedor);
+  planState = planState.filter(c => String(c.num_contenedor) !== id);
+  pendingOpen.delete(id);
+  changes = changes.filter(ch => !(ch.type === 'apertura' && ch.containerId === id));
+  recordChange('eliminar', 'Contenedor eliminado', `Contenedor ${id} eliminado del plan`, id);
+  renderPlanViews();
+  showToast('Contenedor eliminado del plan.', 'ok');
+}
+
+function confirmClearAll() {
+  if(!confirm('¿Eliminar TODOS los datos operacionales?\n\nSe limpiarán: Inventario, Piezas, Plan de apertura, Aperturas y Cambios.\n\nEsta acción no se puede deshacer.')) return;
+  fetch('/limpiar_datos', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if(data.success) {
+        planState = [];
+        openedContainers = [];
+        changes = [];
+        piezasState = [];
+        pendingOpen = new Set();
+        planLoaded = false;
+        piezasTotal = 0;
+        piezasPage = 1;
+        renderAll();
+        showToast('Todos los datos limpiados correctamente.', 'ok');
+      } else {
+        showToast('Error: ' + (data.error || 'Error desconocido'), 'err');
+      }
+    })
+    .catch(err => showToast('Error de conexión: ' + err.message, 'err'));
 }
 
 function refreshSem() {
@@ -972,7 +1071,7 @@ function toggleContainerOpenPending(visibleIndex) {
     'Apertura pendiente',
     `Contenedor ${id} marcado como abierto`,
     id,
-    { container: item }
+    { container: item, hora: item.hora || '' }
   );
   renderPlanViews();
   showToast('Apertura pendiente. Aplicá cambios para confirmarla.', 'info');
@@ -991,7 +1090,6 @@ function recordChange(type, title, description, containerId, payload) {
     appliedAt: null
   });
   renderChanges();
-  updateChangeIndicators();
   persistCambios();
 }
 
@@ -1009,7 +1107,6 @@ function recordChangeApplied(type, title, description, containerId, payload) {
     appliedAt
   });
   renderChanges();
-  updateChangeIndicators();
   persistCambios();
 }
 
@@ -1021,13 +1118,22 @@ async function applyChanges() {
   }
 
   const appliedAt = new Date().toISOString();
+  const visible = getVisiblePlan();
   pending
     .filter(c => c.type === 'apertura')
     .forEach(change => {
       if(openedContainers.some(c => String(c.num_contenedor) === change.containerId)) return;
+      const planItem = visible.find(v => String(v.num_contenedor) === change.containerId);
+      const hora = planItem?.hora || change.payload?.hora || formatTime(appliedAt);
+      const snapshot = planItem || {};
       openedContainers.unshift({
         num_contenedor: change.containerId,
-        hora: formatTime(appliedAt),
+        ref: snapshot.ref || '',
+        designacion: snapshot.designacion || '',
+        stock_actual: snapshot.stock_actual || 0,
+        cobertura_horas: snapshot.cobertura_horas || 0,
+        linea: snapshot.linea || 'N/A',
+        hora: hora,
         estado: 'Abierto'
       });
     });
@@ -1077,11 +1183,10 @@ function renderChanges() {
   const list = byId('changes-list');
   if(!list) return;
   const pendingCount = changes.filter(c => c.status === 'pending').length;
-  byId('changes-count').innerText = pendingCount + ' pendientes';
+  if(byId('changes-count')) byId('changes-count').innerText = pendingCount + ' pendientes';
 
   if(changes.length === 0) {
     list.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center;">Todavía no hay cambios registrados.</div>';
-    updateChangeIndicators();
     return;
   }
 
@@ -1099,13 +1204,6 @@ function renderChanges() {
       <span class="badge ${pending ? 'amber' : 'green'}">${pending ? 'PEND' : 'OK'}</span>
     </div>`;
   }).join('');
-  updateChangeIndicators();
-}
-
-function updateChangeIndicators() {
-  const pendingCount = changes.filter(c => c.status === 'pending').length;
-  if(byId('kpi-pending')) byId('kpi-pending').innerText = pendingCount;
-  if(byId('changes-count')) byId('changes-count').innerText = pendingCount + ' pendientes';
 }
 
 function clearChanges() {
@@ -1115,7 +1213,6 @@ function clearChanges() {
   }
   changes = [];
   renderChanges();
-  updateChangeIndicators();
   showToast('Lista de cambios limpiada.', 'ok');
 }
 
@@ -1135,13 +1232,23 @@ async function renderPiezas() {
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px;">Cargando piezas...</td></tr>';
 
   try {
-    const resp = await fetch('/piezas');
+    const params = new URLSearchParams({
+      page: piezasPage,
+      page_size: piezasPageSize
+    });
+    if(piezasSearch) params.set('search', piezasSearch);
+
+    const resp = await fetch('/piezas?' + params.toString());
     const data = await resp.json();
     piezasState = Array.isArray(data.piezas) ? data.piezas : [];
-    byId('piezas-count').innerText = piezasState.length + ' piezas';
+    piezasTotal = data.total || 0;
+    const totalPages = Math.max(1, Math.ceil(piezasTotal / piezasPageSize));
+
+    byId('piezas-count').innerText = piezasTotal + ' piezas';
 
     if(piezasState.length === 0) {
       tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px;">No hay datos de piezas importados.</td></tr>';
+      byId('piezas-pagination').innerHTML = '';
       return;
     }
 
@@ -1156,9 +1263,22 @@ async function renderPiezas() {
         <td>${escapeHtml(p['Flujo Espe'] || '-')}</td>
       </tr>
     `).join('');
+
+    byId('piezas-pagination').innerHTML = `
+      <button class="btn btn-ghost btn-sm" onclick="piezasGoPage(${piezasPage - 1})" ${piezasPage <= 1 ? 'disabled style="opacity:0.4;pointer-events:none"' : ''}>← Ant</button>
+      <span>Pág ${piezasPage} de ${totalPages}</span>
+      <button class="btn btn-ghost btn-sm" onclick="piezasGoPage(${piezasPage + 1})" ${piezasPage >= totalPages ? 'disabled style="opacity:0.4;pointer-events:none"' : ''}>Sig →</button>
+    `;
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--red);padding:16px;">Error al cargar piezas: ${escapeHtml(err.message)}</td></tr>`;
   }
+}
+
+function piezasGoPage(p) {
+  const totalPages = Math.max(1, Math.ceil(piezasTotal / piezasPageSize));
+  if(p < 1 || p > totalPages) return;
+  piezasPage = p;
+  renderPiezas();
 }
 
 function startClock() {

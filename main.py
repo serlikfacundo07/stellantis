@@ -590,24 +590,44 @@ def get_piezas():
     try:
         db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
         if not os.path.exists(db_path):
-            return jsonify({'piezas': [], 'columnas': []})
+            return jsonify({'piezas': [], 'columnas': [], 'total': 0, 'page': 1, 'page_size': 50})
+
+        search   = request.args.get('search', '').strip()
+        page     = max(1, int(request.args.get('page', 1)))
+        page_size = max(1, min(200, int(request.args.get('page_size', 50))))
 
         conexion = sqlite3.connect(db_path)
         cursor   = conexion.cursor()
 
-        # Verificar si la tabla piezas existe
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='piezas'")
         if not cursor.fetchone():
             conexion.close()
-            return jsonify({'piezas': [], 'columnas': []})
+            return jsonify({'piezas': [], 'columnas': [], 'total': 0, 'page': 1, 'page_size': page_size})
 
-        cursor.execute("SELECT * FROM piezas ORDER BY Ref")
-        rows    = cursor.fetchall()
+        if search:
+            like = f'%{search}%'
+            cursor.execute(
+                "SELECT COUNT(*) FROM piezas WHERE Ref LIKE ? OR Designacao LIKE ? OR Darsena LIKE ? OR \"Flujo Espe\" LIKE ?",
+                (like, like, like, like))
+            total = cursor.fetchone()[0]
+
+            offset = (page - 1) * page_size
+            cursor.execute(
+                "SELECT * FROM piezas WHERE Ref LIKE ? OR Designacao LIKE ? OR Darsena LIKE ? OR \"Flujo Espe\" LIKE ? ORDER BY Ref LIMIT ? OFFSET ?",
+                (like, like, like, like, page_size, offset))
+        else:
+            cursor.execute("SELECT COUNT(*) FROM piezas")
+            total = cursor.fetchone()[0]
+
+            offset = (page - 1) * page_size
+            cursor.execute("SELECT * FROM piezas ORDER BY Ref LIMIT ? OFFSET ?", (page_size, offset))
+
+        rows     = cursor.fetchall()
         columnas = [description[0] for description in cursor.description]
         conexion.close()
 
         piezas = [dict(zip(columnas, row)) for row in rows]
-        return jsonify({'piezas': piezas, 'columnas': columnas})
+        return jsonify({'piezas': piezas, 'columnas': columnas, 'total': total, 'page': page, 'page_size': page_size})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -774,11 +794,14 @@ def plan_apertura():
         # Deficit restante por ref (se actualiza conforme se seleccionan contenedores)
         deficit_por_ref = {item['ref']: item['deficit'] for item in plan_items}
 
+        # Mapeo de puntos de consumo
+        linea_map = {'771': '711 (Montaje)', '774': '774 (Chapa)'}
+
         # Selección greedy: en cada iteración, elegir el contenedor con mayor ganancia marginal * urgencia
         contenedores_seleccionados = set()
         plan_final = []
 
-        for _ in range(10):
+        for _ in range(12):
             mejor_contenedor = None
             mejor_ganancia = 0
 
@@ -790,10 +813,7 @@ def plan_apertura():
                 if deficit_restante <= 0:
                     continue
 
-                # Ganancia marginal = min(cantidad, deficit_restante)
                 ganancia = min(c['cantidad'], deficit_restante)
-
-                # Ponderar por urgencia del parte (deficit/total_necesidad)
                 ganancia_ponderada = ganancia * c['urgencia']
 
                 if ganancia_ponderada > mejor_ganancia:
@@ -801,24 +821,13 @@ def plan_apertura():
                     mejor_contenedor = c
 
             if mejor_contenedor is None or mejor_ganancia <= 0:
-                break  # No hay más contenedores que cubran deficit
+                break
 
-            # Seleccionar el mejor contenedor
             contenedores_seleccionados.add(mejor_contenedor['num_contenedor'])
             deficit_por_ref[mejor_contenedor['ref']] -= min(mejor_contenedor['cantidad'], deficit_por_ref[mejor_contenedor['ref']])
 
-            # Determinar estado visual
-            if mejor_contenedor['cobertura_horas'] < 2:
-                estado = 'red'
-                estado_label = 'Crítico'
-            elif mejor_contenedor['cobertura_horas'] < 5:
-                estado = 'amber'
-                estado_label = 'Atención'
-            else:
-                estado = 'green'
-                estado_label = 'OK'
-
-            linea = mejor_contenedor['darsena'].strip() if mejor_contenedor['darsena'] else mejor_contenedor['flujo_espe'] or 'N/A'
+            linea = (mejor_contenedor['darsena'].strip() if mejor_contenedor['darsena'] else mejor_contenedor['flujo_espe'] or 'N/A')
+            linea = linea_map.get(linea, linea)
 
             plan_final.append({
                 'prioridad': len(plan_final) + 1,
@@ -835,8 +844,8 @@ def plan_apertura():
                 'deficit': mejor_contenedor['deficit'],
                 'cobertura_horas': mejor_contenedor['cobertura_horas'],
                 'linea': linea,
-                'estado': estado,
-                'estado_label': estado_label
+                'estado': 'red' if mejor_contenedor['cobertura_horas'] < 2 else ('amber' if mejor_contenedor['cobertura_horas'] < 5 else 'green'),
+                'estado_label': 'Crítico' if mejor_contenedor['cobertura_horas'] < 2 else ('Atención' if mejor_contenedor['cobertura_horas'] < 5 else 'OK')
             })
 
         # Guardar plan en tabla de historial
@@ -867,7 +876,7 @@ def plan_apertura():
             'success': True,
             'plan': plan_final,
             'total_contenedores': len(plan_final),
-            'message': f'Plan generado con {len(plan_final)} contenedores a abrir (máx 10/día)'
+            'message': f'Plan generado con {len(plan_final)} contenedores a abrir (máx 12/día)'
         })
 
     except Exception as e:
@@ -1062,12 +1071,34 @@ def importar_datos():
         return jsonify({'error': f'Error al importar datos: {str(e)}'}), 500
 
 
+@app.route('/limpiar_datos', methods=['POST'])
+def limpiar_datos():
+    try:
+        db_path = os.path.join(BASE_DIR, 'datos_inventario.db')
+        if not os.path.exists(db_path):
+            return jsonify({'success': True, 'mensaje': 'No hay datos que limpiar'})
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        for tbl in ['inventario', 'piezas', 'plan_apertura', 'aperturas', 'cambios']:
+            try:
+                cursor.execute(f'DELETE FROM {tbl}')
+            except sqlite3.OperationalError:
+                pass
+        conn.commit()
+        conn.execute('VACUUM')
+        conn.close()
+        return jsonify({'success': True, 'mensaje': 'Datos operacionales limpiados correctamente'})
+    except Exception as e:
+        return jsonify({'error': f'Error al limpiar datos: {str(e)}'}), 500
+
+
 # =====================================================================
 # 📄 GENERACIÓN DE PDF - PLAN DE APERTURA
 # =====================================================================
 COLS = ['ORDEN', 'CONTENEDOR', 'HORA', 'ABIERTO']
-COL_X = [15*mm, 37*mm, 152*mm, 177*mm]
-COL_W = [22*mm, 115*mm, 25*mm, 18*mm]
+COL_X = [15*mm, 37*mm, 130*mm, 160*mm]
+COL_W = [22*mm, 93*mm, 30*mm, 18*mm]
 TOTAL_W = sum(COL_W)
 ROW_H = 16*mm
 HEADER_H = 12*mm
@@ -1123,12 +1154,10 @@ def generar_pdf_plan(datos):
             c.drawString(rx, y_text, f'({ref})')
             c.setFillColorRGB(0, 0, 0)
 
-        c.setStrokeColorRGB(0.3, 0.3, 0.3)
-        c.setLineWidth(0.3)
-        hc = COL_X[2] + COL_W[2] / 2
-        hy = y_text + 1
-        c.line(hc - 9, hy, hc - 2, hy)
-        c.line(hc + 2, hy, hc + 9, hy)
+        c.setFont('Helvetica', 9)
+        c.setFillColorRGB(0, 0, 0)
+        hora_txt = item.get('hora', '') or '--:--'
+        c.drawCentredString(COL_X[2] + COL_W[2] / 2, y_text, hora_txt)
 
         c.setStrokeColorRGB(0.2, 0.2, 0.2)
         c.setLineWidth(0.4)
@@ -1286,7 +1315,8 @@ def plan_apertura_json():
         deficit_por_ref = {item['ref']: item['deficit'] for item in items}
         seleccionados = set()
         final = []
-        for _ in range(10):
+        linea_map = {'771': '711 (Montaje)', '774': '774 (Chapa)'}
+        for _ in range(12):
             mejor = None
             mejor_ganancia = 0
             for c in pool:
@@ -1303,13 +1333,8 @@ def plan_apertura_json():
                 break
             seleccionados.add(mejor['num_contenedor'])
             deficit_por_ref[mejor['ref']] -= min(mejor['cantidad'], deficit_por_ref[mejor['ref']])
-            if mejor['cobertura_horas'] < 2:
-                estado, label = 'red', 'Critico'
-            elif mejor['cobertura_horas'] < 5:
-                estado, label = 'amber', 'Atencion'
-            else:
-                estado, label = 'green', 'OK'
             linea = (mejor['darsena'] or mejor['flujo_espe'] or 'N/A').strip()
+            linea = linea_map.get(linea, linea)
             final.append({
                 'prioridad': len(final) + 1,
                 'num_contenedor': mejor['num_contenedor'],
@@ -1324,9 +1349,7 @@ def plan_apertura_json():
                 'necesidad_manana': mejor['necesidad_manana'],
                 'deficit': mejor['deficit'],
                 'cobertura_horas': mejor['cobertura_horas'],
-                'linea': linea,
-                'estado': estado,
-                'estado_label': label
+                'linea': linea
             })
         return final
     except Exception:
